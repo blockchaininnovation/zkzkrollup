@@ -11,8 +11,9 @@ edition = "2021"
 "halo2wrong" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
 "maingate" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
 "integer" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
+"rs_merkle" = "1.2"
+
 
 [[bin]]
 name = "merkle"
 path = "src/main.rs"
-
