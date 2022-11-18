@@ -1,2 +1,2 @@
 [workspace]
-members=["merkle"]
+members=["merkle","recursion"]
