@@ -1,19 +1,26 @@
 [package]
-name = "merkle"
-version = "0.1.0"
-edition = "2021"
+name = "rs_merkle"
+version = "1.2.0"
+authors = ["Anton Suprunchuk <anton.suprunchuk@gmail.com>"]
+description = "The most advanced Merkle Tree library for Rust. Supports creating and verifying proofs, multi-proofs, as well as advanced features, such as tree diffs, transactional changes, and rollbacks"
+edition = "2018"
+license = "Apache-2.0/MIT"
+repository = "https://github.com/antouhou/rs-merkle"
+documentation = "https://docs.rs/rs_merkle/"
+readme = "README.md"
+keywords = ["merkle", "tree", "proof", "hash", "multiproof",]
+exclude = ["/ci/*", "/scripts/*", "/.github/*", "/bors.toml"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-"halo2_proofs"= "0.2.0"
-"ecc" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
-"halo2wrong" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
-"maingate" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
-"integer" = {version = "0.1.0", git="https://github.com/privacy-scaling-explorations/halo2wrong.git"}
-"rs_merkle" = "1.2"
+sha2 = { version = "0.10.2", default-features = false }
+micromath = "2.0.0"
 
+# standard crate data is left out
+[dev-dependencies]
+rayon = "1.5.1"
 
-[[bin]]
-name = "merkle"
-path = "src/main.rs"
+[features]
+default = ['std']
+std = ["sha2/std"]
