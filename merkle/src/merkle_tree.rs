@@ -1,5 +1,8 @@
 use crate::prelude::*;
 use crate::{partial_tree::PartialTree, utils, utils::indices, Hasher, MerkleProof};
+use std::collections::HashMap;
+
+use num_bigint::BigUint;
 
 /// [`MerkleTree`] is a Merkle Tree that is well suited for both basic and advanced usage.
 ///
@@ -13,7 +16,7 @@ use crate::{partial_tree::PartialTree, utils, utils::indices, Hasher, MerkleProo
 pub struct MerkleTree<T: Hasher> {
     current_working_tree: PartialTree<T>,
     history: Vec<PartialTree<T>>,
-    uncommitted_leaves: Vec<T::Hash>,
+    uncommitted_leaves: HashMap<BigUint, T::Hash>,
 }
 
 impl<T: Hasher> Default for MerkleTree<T> {
@@ -38,7 +41,7 @@ impl<T: Hasher> MerkleTree<T> {
         Self {
             current_working_tree: PartialTree::new(),
             history: Vec::new(),
-            uncommitted_leaves: Vec::new(),
+            uncommitted_leaves: HashMap::new(),
         }
     }
 
@@ -59,10 +62,10 @@ impl<T: Hasher> MerkleTree<T> {
     /// let merkle_tree = MerkleTree::<Sha256>::from_leaves(&leaves);
     /// # Ok(())
     /// # }
-    pub fn from_leaves(leaves: &[T::Hash]) -> Self {
+    pub fn from_leaves(leaves: &mut HashMap<BigUint, T::Hash>) -> Self {
         let mut tree = Self::new();
 
-        tree.append(leaves.to_vec().as_mut());
+        tree.append(leaves);
         tree.commit();
 
         tree
@@ -244,8 +247,8 @@ impl<T: Hasher> MerkleTree<T> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn insert(&mut self, leaf: T::Hash) -> &mut Self {
-        self.uncommitted_leaves.push(leaf);
+    pub fn insert(&mut self, address: BigUint, leaf: T::Hash) -> &mut Self {
+        self.uncommitted_leaves.insert(address, leaf);
         self
     }
 
@@ -275,8 +278,8 @@ impl<T: Hasher> MerkleTree<T> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn append(&mut self, leaves: &mut Vec<T::Hash>) -> &mut Self {
-        self.uncommitted_leaves.append(leaves);
+    pub fn append(&mut self, leaves: &HashMap<BigUint, T::Hash>) -> &mut Self {
+        self.uncommitted_leaves.extend(*leaves);
         self
     }
 
