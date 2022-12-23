@@ -1,2 +1,6 @@
 [workspace]
-members=["merkle","recursion"]
+members=[
+    "merkle",
+    "recursion",
+    "hash"
+]
