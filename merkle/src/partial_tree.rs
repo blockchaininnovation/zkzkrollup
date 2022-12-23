@@ -18,7 +18,7 @@ type PartialTreeLayer<H> = Vec<(usize, H)>;
 /// [`MerkleProof`]: crate::MerkleProof
 #[derive(Clone)]
 pub struct PartialTree<T: Hasher> {
-    leafs: HashMap<BigUint, T::Hash>,
+    leaves: HashMap<BigUint, T::Hash>,
 }
 
 impl<T: Hasher> Default for PartialTree<T> {
@@ -101,7 +101,21 @@ impl<T: Hasher> PartialTree<T> {
     /// Returns how many layers there is between leaves and the root
     pub fn depth(&self) -> usize {
         self.layers.len() - 1
-        // 葉の数より計算．
+        // 葉の数より深さを計算．
+        // 葉の数は2のn場
+    }
+    /// 葉の数を返す．2のn乗になってなかったら補填した値を返す．
+    /// つまり必ず2のn乗の値が返る．
+    pub fn num_of_leaves(&self) -> usize {
+        let len = self.leaves.len();
+        let ret = 1;
+        for n in 1..100000 {
+            ret = ret * 2;
+            if len <= ret {
+                return ret;
+            }
+        }
+        return 0;
     }
 
     /// Return the root of the tree
