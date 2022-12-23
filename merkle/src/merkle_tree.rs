@@ -540,9 +540,11 @@ impl<T: Hasher> MerkleTree<T> {
         if self.uncommitted_leaves.is_empty() {
             return None;
         }
-
+        // すでにコミットされたリーフの数
         let committed_leaves_count = self.leaves_len();
 
+        // これは，たぶんコミットされていないリーフについて，開始として仮のインデックスをつけて求めている．
+        // 仮のインデックスは，
         let shadow_indices: Vec<usize> = self
             .uncommitted_leaves
             .iter()

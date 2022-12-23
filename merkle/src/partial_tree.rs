@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use num_bigint::BigUint;
+
 use crate::prelude::*;
 use crate::{error::Error, utils, Hasher};
 
@@ -14,7 +18,7 @@ type PartialTreeLayer<H> = Vec<(usize, H)>;
 /// [`MerkleProof`]: crate::MerkleProof
 #[derive(Clone)]
 pub struct PartialTree<T: Hasher> {
-    layers: Vec<Vec<(usize, T::Hash)>>,
+    leafs: HashMap<BigUint, T::Hash>,
 }
 
 impl<T: Hasher> Default for PartialTree<T> {
@@ -97,6 +101,7 @@ impl<T: Hasher> PartialTree<T> {
     /// Returns how many layers there is between leaves and the root
     pub fn depth(&self) -> usize {
         self.layers.len() - 1
+        // 葉の数より計算．
     }
 
     /// Return the root of the tree
