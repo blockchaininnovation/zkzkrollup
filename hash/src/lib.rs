@@ -149,7 +149,11 @@ mod tests {
         const K: u32 = 7;
         let params: ParamsIPA<vesta::Affine> = ParamsIPA::new(K);
 
-        let empty_circuit = HashCircuit::<S, WIDTH, RATE, L> {
+        const WIDTH: usize = 9;
+        const RATE: usize = 8;
+        const LENGTH: usize = 8;
+
+        let empty_circuit = HashCircuit::<MySpec<9, 8>, WIDTH, RATE, LENGTH> {
             message: Value::unknown(),
             _spec: PhantomData,
         };
@@ -157,6 +161,44 @@ mod tests {
         let vk = keygen_vk(&params, &empty_circuit).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
 
-        assert_eq!(result, 4);
+        let mut rng = OsRng;
+        let message: [Fp; LENGTH] = (0..LENGTH)
+            .map(|_| pallas::Base::random(rng))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let output = poseidon::Hash::<_, MySpec<9, 8>, ConstantLength<LENGTH>, WIDTH, RATE>::init()
+            .hash(message);
+
+        let circuit = HashCircuit::<MySpec<9, 8>, WIDTH, RATE, LENGTH> {
+            message: Value::known(message),
+            _spec: PhantomData,
+        };
+
+        let mut transcript = Blake2bWrite::<_, EqAffine, Challenge255<_>>::init(vec![]);
+
+        create_proof::<IPACommitmentScheme<_>, ProverIPA<_>, _, _, _, _>(
+            &params,
+            &pk,
+            &[circuit],
+            &[&[&[output]]],
+            &mut rng,
+            &mut transcript,
+        )
+        .expect("proof generation should not fail");
+
+        let proof = transcript.finalize();
+
+        let strategy = SingleStrategy::new(&params);
+        let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
+
+        assert!(verify_proof(
+            &params,
+            pk.get_vk(),
+            strategy,
+            &[&[&[output]]],
+            &mut transcript
+        )
+        .is_ok())
     }
 }
