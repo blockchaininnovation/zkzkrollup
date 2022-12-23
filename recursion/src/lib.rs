@@ -1,4 +1,4 @@
-mod witness;
+mod utils;
 use halo2_wrong_ecc::EccConfig;
 use halo2wrong::curves::bn256::{Bn256, Fq, Fr, G1Affine};
 use halo2wrong::curves::pasta::pallas::Base;
@@ -35,19 +35,20 @@ use plonk_verifier::{
     },
     pcs::{
         kzg::{Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey},
-        AccumulationScheme,
+        AccumulationScheme, AccumulationSchemeProver,
     },
     system::{
         self,
         halo2::{compile, transcript::evm::EvmTranscript, Config},
     },
+    util::arithmetic::fe_to_limbs,
     verifier::{self, PlonkVerifier},
 };
 use rand::{rngs::OsRng, RngCore};
 use std::io::Read;
 use std::marker::PhantomData;
 use std::rc::Rc;
-pub use witness::SnarkWitness;
+pub use utils::{Snark, SnarkWitness};
 
 type Plonk = verifier::Plonk<Kzg<Bn256, Gwc19>>;
 type BaseFieldEccChip = halo2_wrong_ecc::BaseFieldEccChip<G1Affine, NUMBER_OF_LIMBS, BIT_LEN_LIMB>;
@@ -79,6 +80,9 @@ impl Halo2AccumulatorConfig {
     }
 }
 
+const LIMBS: usize = 4;
+const BITS: usize = 68;
+
 #[derive(Clone)]
 pub struct Halo2AccumulatorChip {
     config: Halo2AccumulatorConfig,
@@ -89,7 +93,11 @@ pub struct Halo2AccumulatorChip {
 }
 
 impl Halo2AccumulatorChip {
-    /*pub fn new(params: &ParamsKZG<Bn256>, snarks: impl IntoIterator<Item = Snark>) -> Self {
+    pub fn new(
+        config: Halo2AccumulatorConfig,
+        params: &ParamsKZG<Bn256>,
+        snarks: impl IntoIterator<Item = Snark>,
+    ) -> Self {
         let svk = params.get_g()[0].into();
         let snarks = snarks.into_iter().collect_vec();
         let accumulators = snarks
@@ -103,7 +111,28 @@ impl Halo2AccumulatorChip {
                 Plonk::succinct_verify(&svk, &snark.protocol, &snark.instances, &proof).unwrap()
             })
             .collect_vec();
-    }*/
+
+        let (accumulator, as_proof) = {
+            let mut transcript = PoseidonTranscript::<NativeLoader, _>::new(Vec::new());
+            let accumulator =
+                As::create_proof(&Default::default(), &accumulators, &mut transcript, OsRng)
+                    .unwrap();
+            (accumulator, transcript.finalize())
+        };
+
+        let KzgAccumulator { lhs, rhs } = accumulator;
+        let instances = [lhs.x, lhs.y, rhs.x, rhs.y]
+            .map(fe_to_limbs::<_, _, LIMBS, BITS>)
+            .concat();
+
+        Self {
+            config,
+            svk,
+            snarks: snarks.into_iter().map_into().collect(),
+            instances,
+            as_proof: Value::known(as_proof),
+        }
+    }
 
     pub fn ecc_chip(&self) -> BaseFieldEccChip {
         BaseFieldEccChip::new(self.config.ecc_config.clone())

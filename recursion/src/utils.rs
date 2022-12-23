@@ -45,6 +45,37 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 #[derive(Clone)]
+pub struct Snark {
+    pub(crate) protocol: Protocol<G1Affine>,
+    pub(crate) instances: Vec<Vec<Fr>>,
+    pub(crate) proof: Vec<u8>,
+}
+
+impl Snark {
+    pub fn new(protocol: Protocol<G1Affine>, instances: Vec<Vec<Fr>>, proof: Vec<u8>) -> Self {
+        Self {
+            protocol,
+            instances,
+            proof,
+        }
+    }
+}
+
+impl From<Snark> for SnarkWitness {
+    fn from(snark: Snark) -> Self {
+        Self {
+            protocol: snark.protocol,
+            instances: snark
+                .instances
+                .into_iter()
+                .map(|instances| instances.into_iter().map(Value::known).collect_vec())
+                .collect(),
+            proof: Value::known(snark.proof),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct SnarkWitness {
     pub(crate) protocol: Protocol<G1Affine>,
     pub(crate) instances: Vec<Vec<Value<Fr>>>,
