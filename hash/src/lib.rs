@@ -38,6 +38,18 @@ where
     _spec: PhantomData<S>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Affine {
+    pub x: Fp,
+    pub y: Fp,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EncryptedBalance {
+    pub left: Affine,
+    pub right: Affine,
+}
+
 #[derive(Debug, Clone)]
 struct MyConfig<const WIDTH: usize, const RATE: usize, const L: usize> {
     input: [Column<Advice>; L],
@@ -140,6 +152,21 @@ impl<const WIDTH: usize, const RATE: usize> Spec<Fp, WIDTH, RATE> for MySpec<WID
     }
 }
 
+pub fn leaf_to_message(balance: EncryptedBalance, public_key: Affine, nonce: Fp) -> [Fp; 8] {
+    let EncryptedBalance { left, right } = balance;
+    let (pub_x, pub_y) = (public_key.x, public_key.y);
+    [
+        left.x,
+        left.y,
+        right.x,
+        right.y,
+        pub_x,
+        pub_y,
+        nonce,
+        Fp::zero(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,11 +189,13 @@ mod tests {
         let pk = keygen_pk(&params, vk, &empty_circuit).expect("keygen_pk should not fail");
 
         let mut rng = OsRng;
+
         let message: [Fp; LENGTH] = (0..LENGTH)
             .map(|_| pallas::Base::random(rng))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+
         let output = poseidon::Hash::<_, MySpec<9, 8>, ConstantLength<LENGTH>, WIDTH, RATE>::init()
             .hash(message);
 
