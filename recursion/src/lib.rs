@@ -34,7 +34,9 @@ use plonk_verifier::{
         native::NativeLoader,
     },
     pcs::{
-        kzg::{Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey},
+        kzg::{
+            Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey, LimbsEncodingInstructions,
+        },
         AccumulationScheme, AccumulationSchemeProver,
     },
     system::{
@@ -148,12 +150,11 @@ impl Halo2AccumulatorChip {
     pub fn accumulate<'a>(
         &'a self,
         ctx: <BaseFieldEccChip as EccInstructions<'a, G1Affine>>::Context,
-        params: &ParamsKZG<Bn256>,
+        svk: &KzgSuccinctVerifyingKey<G1Affine>,
         snarks: &[SnarkWitness],
         as_proof: Value<&'a [u8]>,
     ) -> Result<KzgAccumulator<G1Affine, Rc<Halo2Loader>>, Error> {
         let loader = self.loader(ctx);
-        let svk: KzgSuccinctVerifyingKey<G1Affine> = params.get_g()[0].into();
 
         let assign_instances = |instances: &[Vec<Value<Fr>>]| {
             instances
@@ -295,3 +296,7 @@ fn gen_verifier_circuit(
     evm::compile_yul(&loader.yul_code())
 }
 */
+#[cfg(test)]
+mod test {
+    use super::*;
+}
