@@ -1,6 +1,7 @@
 [workspace]
 members=[
     "merkle",
+    "merkle-rnd",
     "recursion",
     "hash"
 ]
