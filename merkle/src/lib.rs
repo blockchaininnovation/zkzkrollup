@@ -146,6 +146,7 @@ mod hasher;
 mod merkle_proof;
 mod merkle_tree;
 mod partial_tree;
+mod poseidon;
 mod prelude;
 #[doc(hidden)]
 pub mod utils;
