@@ -31,7 +31,9 @@ impl<T: Hasher> PartialTree<T> {
     /// Takes leaves (item hashes) as an argument and build a Merkle Tree from them.
     /// Since it's a partial tree, hashes must be accompanied by their index in the original tree.
     pub fn new() -> Self {
-        Self { layers: Vec::new() }
+        Self {
+            leaves: HashMap::new(),
+        }
     }
 
     /// This is a helper function to build a full tree from a full set of leaves without any
@@ -100,15 +102,26 @@ impl<T: Hasher> PartialTree<T> {
 
     /// Returns how many layers there is between leaves and the root
     pub fn depth(&self) -> usize {
-        self.layers.len() - 1
         // 葉の数より深さを計算．
         // 葉の数は2のn場
+        let mut ret: usize = 0;
+        let mut times: usize = self.num_of_leaves();
+        while true {
+            if (times == 1) {
+                break;
+            }
+            times = times / 2;
+            ret = ret + 1;
+        }
+
+        return ret;
     }
+
     /// 葉の数を返す．2のn乗になってなかったら補填した値を返す．
     /// つまり必ず2のn乗の値が返る．
     pub fn num_of_leaves(&self) -> usize {
         let len = self.leaves.len();
-        let ret = 1;
+        let mut ret = 1;
         for n in 1..100000 {
             ret = ret * 2;
             if len <= ret {
@@ -120,14 +133,12 @@ impl<T: Hasher> PartialTree<T> {
 
     /// Return the root of the tree
     pub fn root(&self) -> Option<&T::Hash> {
+        // rootにいたるまでの各レイヤーの値をすべて計算して導出する
         Some(&self.layers.last()?.first()?.1)
     }
 
     pub fn contains(&self, layer_index: usize, node_index: usize) -> bool {
-        match self.layers().get(layer_index) {
-            Some(layer) => layer.iter().any(|(index, _)| *index == node_index),
-            None => false,
-        }
+        // 指定したレイヤーとそのノード番号がこのパーシャルツリーに存在しているかどうか
     }
 
     /// Consumes other partial tree into itself, replacing any conflicting nodes with nodes from
@@ -137,65 +148,13 @@ impl<T: Hasher> PartialTree<T> {
     /// `MerkleTree`, since both partial trees are essentially constructed in place and there's
     /// no need to verify integrity of the result.
     pub fn merge_unverified(&mut self, other: Self) {
-        // Figure out new tree depth after merge
-        let depth_difference = other.layers().len() - self.layers().len();
-        let combined_tree_size = if depth_difference > 0 {
-            other.layers().len()
-        } else {
-            self.layers().len()
-        };
-
-        for layer_index in 0..combined_tree_size {
-            let mut combined_layer: Vec<(usize, T::Hash)> = Vec::new();
-
-            if let Some(self_layer) = self.layers().get(layer_index) {
-                let mut filtered_layer: Vec<(usize, T::Hash)> = self_layer
-                    .iter()
-                    .filter(|(node_index, _)| !other.contains(layer_index, *node_index))
-                    .cloned()
-                    .collect();
-
-                combined_layer.append(&mut filtered_layer);
-            }
-
-            if let Some(other_layer) = other.layers().get(layer_index) {
-                let mut cloned_other_layer = other_layer.clone();
-                combined_layer.append(&mut cloned_other_layer);
-            }
-
-            combined_layer.sort_by(|(a, _), (b, _)| a.cmp(b));
-            self.upsert_layer(layer_index, combined_layer);
+        for (key, value) in other {
+            self.leaves.insert(key, value);
         }
     }
 
-    /// Replace layer at a given index with a new layer. Used during tree merge
-    fn upsert_layer(&mut self, layer_index: usize, mut new_layer: Vec<(usize, T::Hash)>) {
-        match self.layers.get_mut(layer_index) {
-            Some(layer) => {
-                layer.clear();
-                layer.append(new_layer.as_mut())
-            }
-            None => self.layers.push(new_layer),
-        }
-    }
-
-    pub fn layer_nodes(&self) -> Vec<Vec<T::Hash>> {
-        let hashes: Vec<Vec<T::Hash>> = self
-            .layers()
-            .iter()
-            .map(|layer| layer.iter().cloned().map(|(_, hash)| hash).collect())
-            .collect();
-
-        hashes
-    }
-
-    /// Returns partial tree layers
-    pub fn layers(&self) -> &[Vec<(usize, T::Hash)>] {
-        &self.layers
-    }
-
-    /// Clears all elements in the ree
+    /// Clears all elements in the tree
     pub fn clear(&mut self) {
-        self.layers.clear();
+        self.leaves.clear();
     }
 }
