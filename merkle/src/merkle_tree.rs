@@ -1,10 +1,5 @@
 use crate::prelude::*;
-use crate::{utils, utils::indices, Hasher};
-use core::ptr::null;
-use halo2_gadgets::poseidon::primitives::{
-    self as poseidon, ConstantLength, P128Pow5T3 as OrchardNullifier,
-};
-use halo2curves::pasta::{pallas, vesta, EqAffine, Fp};
+use crate::Hasher;
 use num_bigint::BigUint;
 use std::collections::HashMap;
 
