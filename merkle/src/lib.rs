@@ -136,20 +136,14 @@ extern crate std;
 pub use error::Error;
 pub use error::ErrorKind;
 pub use hasher::Hasher;
-pub use merkle_proof::MerkleProof;
-pub use merkle_tree::MerkleTree;
-pub use partial_tree::PartialTree;
-pub use proof_serializers::MerkleProofSerializer;
+pub use merkle_tree::SparseMerkleTree;
 
 mod error;
 mod hasher;
-mod merkle_proof;
 mod merkle_tree;
-mod partial_tree;
 mod poseidon;
 mod prelude;
 #[doc(hidden)]
 pub mod utils;
 
 pub mod algorithms;
-pub mod proof_serializers;
