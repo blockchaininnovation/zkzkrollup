@@ -6,10 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-maingate = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2022_10_22", package = "maingate" }
-halo2wrong = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2022_10_22", package = "halo2wrong" }
-halo2_wrong_ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2022_10_22", package = "ecc" }
+maingate = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "maingate" }
+halo2wrong = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "halo2wrong" }
+halo2_wrong_ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "ecc" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_02_02" }
+halo2_curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.1", package = "halo2curves" }
 num-bigint = { version = "0.4", features = ["rand"] }
-plonk_verifier = { git = "https://github.com/SoraSuegami/plonk-verifier.git", version = "0.1.0" }
+snark-verifier = { git = "https://github.com/SoraSuegami/plonk-verifier.git", version = "0.1.0" }
 rand = "0.8"
 itertools = "0.10.3"
