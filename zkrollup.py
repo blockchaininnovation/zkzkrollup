@@ -30,16 +30,12 @@ class UserData:
     def hash() -> FiniteField:
 
 
-class TransactionProof:
-    sender_raw_transfer_amount: FiniteField # private
-    sender_private_key: FiniteField # private
-    sender_after_balance: FiniteField # private
-    randomness: FiniteField # private
-    sender_public_key: EllipticCurvePoints
-    recipient_public_key: EllipticCurvePoints
-    sender_encrypted_balance: EncryptedBalance
-    sender_transfer_amount: EncryptedBalance
-    recipient_transfer_amount: EllipticCurvePoints
+class Transaction:
+    sender_address: EllipticCurvePoints
+    recipient_address: EllipticCurvePoints
+    signature: (EllipticCurvePoints, EllipticCurvePoints)
+    transfer_amount: FiniteField
+    nonce: FiniteField
 
 
 class MerkleProof:
@@ -50,19 +46,17 @@ class MerkleProof:
 
 
 class PublicInputs:
-    sender_public_key: EllipticCurvePoints
-    recipient_public_key: EllipticCurvePoints
-    sender_encrypted_balance: EncryptedBalance
-    sender_transfer_amount: EncryptedBalance
-    recipient_transfer_amount: EllipticCurvePoints
-    merkle_path: FiniteField
-    nonce: FiniteField
-    address: FiniteField
-    signature: Signature
+    prev_merkle_root: FiniteField
+    new_merkle_root: FiniteField
 
 
 class MerkleTree:
+    index: FiniteField
+    root: FiniteField
     leaves: [UserData]
+
+    # add leaf and calculate new merkle root
+    def add(leaf: FiniteField) -> FiniteField:
 
 
 class Layer2State:
@@ -77,29 +71,48 @@ class Layer2State:
     def prove(proofs: [Proof], public_inputs: [PublicInputs]) -> Proof:
 
     # sync with main chain
-    def sync(proof: Proof, merkle_root: FiniteField):
+    def sync(proof: Proof, public_inputs: PublicInputs):
 
 
 class User:
     private_key: FiniteField
     public_key: EllipticCurvePoints
 
-    # encrypt raw number
-    def encrypt(num: int, randomness: int) -> EncryptedBalance:
-
     # sign transaction
     def sign(self, data: UserData) -> Signature:
 
-    # generate proof for confidential transfer
-    def prove(transfer: TransactionProof, merkle: MerkleProof) -> Proof:
 
+def hash() -> FiniteField:
 
 class MainChainContract:
     merkle_root: FiniteField
+    leaf_index: FiniteField
+
+    # deposit user asset
+    def deposit() -> EllipticCurvePoints:
+        # TODO: how to generate L2 key
+        amount = msg.value
+        address = msg.sender
+        nonce = 0
+        leaf = hash(amount, address, nonce)
+
+
+    # update merkle root
+    def update(new_merkle_root: FiniteField):
+        merkle_root = new_merkle_root
 
     # verify proof
-    # TODO: needs user data and to generate hash?
-    def verify(proof: Proof, public_inputs: MerkleTree)
+    def verify(proof: Proof, public_inputs: PublicInputs) -> bool:
+
+    # add new leaf and return new merkle root
+    def add_new_leaf() -> FiniteField:
+        self.merkle_root
+
+    # update merkle root
+    def forge(proof: Proof, public_inputs: PublicInputs):
+        assert self.verify(proof, public_inputs)
+        assert merkle_root == public_inputs.prev_merkle_root
+        self.update(public_inputs.new_merkle_root)
 
 
 def confidential_transfer():
@@ -116,10 +129,3 @@ def confidential_transfer():
     # get user data
     sender_data = Layer2State.get(sender_address)
     recipient_data = Layer2State.get(recipient_address)
-
-    # encrypt
-    sender_transfer_amount = User(sender_private_key, sender_public_key).encrypt(transfer_amount)
-    recipient_transfer_amount = User(sender_public_key).encrypt(transfer_amount)
-
-    # transfer inputs
-    transfer_randomness = 5
