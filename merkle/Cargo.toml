@@ -10,6 +10,8 @@ micromath = "2.0.0"
 num-bigint = "0.4.3"
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22", package = "halo2_gadgets" }
 halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = '0.3.0' }
+group = "0.13.0"
+halo2_proofs = "0.3.0"
 
 # standard crate data is left out
 [dev-dependencies]
