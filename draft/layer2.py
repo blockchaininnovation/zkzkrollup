@@ -1,7 +1,7 @@
 # define layer 2 operator
 class L2Operator:
     # merkle tree
-    merkle: MerkleTree
+    merkle: L2MerkleTree
     root: int
 
     # return user data by address

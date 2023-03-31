@@ -4,9 +4,11 @@ from .type import PublicInputs
 class MainChainContract:
     merkle_root: int
     leaf_index: int
+    deposits: [int]
 
     # deposit user asset and emit event
     def deposit(jubjub_x: int, jubjub_y: int, amount: int):
+        deposits.append(self._hash(jubjub_x, jubjub_y, amount))
         event(jubjub_x, jubjub_y, amount)
 
     # synchronize merkle tree
@@ -25,3 +27,5 @@ class MainChainContract:
     # add new leaf and return new merkle root
     def _add_new_leaf() -> int:
         self.merkle_root
+
+    def _hash(data: any) -> int:
