@@ -1,5 +1,5 @@
 [package]
-name = "recursion"
+name = "confidential-transfer"
 version = "0.1.0"
 edition = "2021"
 
