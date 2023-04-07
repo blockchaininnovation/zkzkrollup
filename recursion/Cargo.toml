@@ -6,12 +6,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-maingate = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "maingate" }
-halo2wrong = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "halo2wrong" }
-halo2_wrong_ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "ecc" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_02_02" }
-halo2_curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.1", package = "halo2curves" }
+# maingate = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "maingate" }
+# halo2wrong = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "halo2wrong" }
+# halo2_wrong_ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong.git", tag = "v2023_02_02", package = "ecc" }
+# halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_02_02" }
+# halo2_curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.1", package = "halo2curves" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations//halo2.git", tag = "v2023_02_02" }
+halo2-base = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git" }
+halo2-ecc = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git" }
 num-bigint = { version = "0.4", features = ["rand"] }
-snark-verifier = { git = "https://github.com/SoraSuegami/plonk-verifier.git", version = "0.1.0" }
 rand = "0.8"
 itertools = "0.10.3"
+snark-verifier = { git = "https://github.com/zkemail/snark-verifier.git", version = "0.1.0", branch = "main", default-features = false, features = [
+    "loader_evm",
+    "loader_halo2",
+    "halo2-pse",
+] }
+snark-verifier-sdk = { git = "https://github.com/zkemail/snark-verifier.git", version = "0.0.1", branch = "main", default-features = false, features = [
+    "loader_evm",
+    "loader_halo2",
+    "halo2-pse",
+] }
+ark-std = { version = "0.4.0", features = ["print-trace"] }
