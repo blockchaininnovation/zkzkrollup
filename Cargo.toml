@@ -1,2 +1,9 @@
 [workspace]
-members = ["merkle", "merkle-rnd", "recursion", "hash", "confidential-transfer"]
+members = [
+    "confidential-transfer",
+    "hash",
+    "merkle",
+    "merkle-rnd",
+    "recursion",
+    "verifier"
+]
