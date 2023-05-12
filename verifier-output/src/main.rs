@@ -226,27 +226,6 @@ fn gen_evm_verifier(
     evm::compile_yul(&loader.yul_code())
 }
 
-fn evm_verify(deployment_code: Vec<u8>, instances: Vec<Vec<Fr>>, proof: Vec<u8>) {
-    let calldata = encode_calldata(&instances, &proof);
-    let success = {
-        let mut evm = ExecutorBuilder::default()
-            .with_gas_limit(u64::MAX.into())
-            .build();
-
-        let caller = Address::from_low_u64_be(0xfe);
-        let verifier = evm
-            .deploy(caller, deployment_code.into(), 0.into())
-            .address
-            .unwrap();
-        let result = evm.call_raw(caller, verifier, calldata.into(), 0.into());
-
-        dbg!(result.gas_used);
-
-        !result.reverted
-    };
-    assert!(success);
-}
-
 fn main() {
     let params = gen_srs(8);
 

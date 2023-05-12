@@ -1,23 +1,36 @@
-import { ethers } from "hardhat";
+const hre = require("hardhat");
+import * as fs from "fs/promises";
 
-async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
-
-  const lockedAmount = ethers.utils.parseEther("0.001");
-
-  const Lock = await ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
-
-  console.log(
-    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+async function readFile(path: string): Promise<string> {
+  try {
+    const data = await fs.readFile(path, "utf-8");
+    return data;
+  } catch (err) {
+    console.error(err);
+    return "";
+  }
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
+async function main() {
+  const CONTRACT_BYTECODE = await readFile("./deployment_code.txt");
+  const CALLDATA = await readFile("./calldata.txt");
+
+  const signer = await hre.ethers.getSigners();
+  const factory = hre.ethers.ContractFactory.fromSolidity(
+    { bytecode: CONTRACT_BYTECODE, abi: [] },
+    signer[0]
+  );
+  const contract = await factory.deploy();
+  await contract.deployed();
+
+  const Verifier = await hre.ethers.getContractFactory("Verifier");
+  const verifier = await Verifier.deploy(contract.address);
+  await verifier.deployed();
+
+  const ret = await verifier.verify(CALLDATA);
+  console.log(ret);
+}
+
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

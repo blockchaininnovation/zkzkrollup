@@ -5,5 +5,5 @@ members = [
     "merkle",
     "merkle-rnd",
     "recursion",
-    "verifier"
+    "verifier-output"
 ]
