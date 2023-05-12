@@ -7,3 +7,8 @@ members = [
     "recursion",
     "verifier-output"
 ]
+
+[patch."https://github.com/young-rocks/halo2.git"]
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_09", package = "halo2_proofs" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_09", package = "halo2_gadgets" }
+
