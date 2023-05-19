@@ -8,19 +8,12 @@ edition = "2021"
 sha2 = { version = "0.10.2", default-features = false }
 micromath = "2.0.0"
 num-bigint = "0.4.3"
-# halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22", package = "halo2_gadgets" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22", package = "halo2_proofs" }
+halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22", package = "halo2_gadgets" }
 halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = '0.3.0' }
 group = "0.13.0"
-# halo2_proofs = "0.3.0"
-chiplet = {git = "https://github.com/young-rocks/rocks-smt.git", rev = "c3b2b87cc0f622f40e707636f678d31e47ef8854" }
 smt = {git = "https://github.com/young-rocks/rocks-smt.git", rev = "c3b2b87cc0f622f40e707636f678d31e47ef8854" }
-halo2_proofs = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
-halo2_gadgets = { git = "https://github.com/young-rocks/halo2", rev = "445a4e275d7f3088d48d1eb27ba177644b9aa550" }
-pasta_curves = "0.4"
-ark-std = { version = "^0.3.0", default-features = false }
-anyhow = "1.0.41"
-ff = "0.12"
-rand = "0.8"
+chiplet = {git = "https://github.com/young-rocks/rocks-smt.git", rev = "c3b2b87cc0f622f40e707636f678d31e47ef8854" }
 
 # standard crate data is left out
 [dev-dependencies]

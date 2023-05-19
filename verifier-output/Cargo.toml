@@ -1,0 +1,12 @@
+[package]
+name = "verifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex = "0.4"
+rand = "0.8"
+itertools = "0.10.3"
+halo2_curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.1", package = "halo2curves" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_02_02" }
+snark_verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier", tag = "v2023_02_02", package = "snark-verifier" }
