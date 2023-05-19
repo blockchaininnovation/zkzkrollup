@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations//halo2.git", tag = "v2023_02_02" }
-halo2-base = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git" }
-halo2-ecc = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git" }
+halo2-base = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git", branch = "main", default-features = false }
+halo2-ecc = { version = "0.2.2", git = "https://github.com/SoraSuegami/halo2-lib.git", branch = "main", default-features = false }
 num-bigint = { version = "0.4", features = ["rand"] }
 rand = "0.8"
 itertools = "0.10.3"
