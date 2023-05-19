@@ -1,5 +1,12 @@
 [workspace]
-members = ["merkle", "merkle-rnd", "recursion", "hash", "confidential-transfer"]
+members = [
+    "confidential-transfer",
+    "hash",
+    "merkle",
+    "merkle-rnd",
+    "recursion",
+    "verifier-output"
+]
 
 # [patch."https://github.com/young-rocks/halo2.git"]
 # halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_19", package = "halo2_proofs" }
