@@ -1,24 +1,48 @@
-use crate::r#const::GAMMA;
+use crate::r#const::PATH_LEN;
 use halo2_proofs::{
-    arithmetic::{Field, FieldExt},
-    circuit::{Cell, Chip},
-    plonk::{Advice, Column, ConstraintSystem, Expression, Instance, Selector},
+    arithmetic::FieldExt,
+    circuit::{Cell, Chip, Layouter, Value},
+    plonk::{Advice, Column, ConstraintSystem, Error, Expression, Instance, Selector},
     poly::Rotation,
 };
-use halo2curves::pasta::Fp;
+use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha8Rng;
+use std::marker::PhantomData;
 
-struct Alloc {
+fn mock_hash<F: FieldExt>(a: F, b: F) -> F {
+    let g = F::random(ChaCha8Rng::from_seed([101u8; 32]));
+    (a + g) * (b + g)
+}
+
+struct Alloc<F: FieldExt> {
     cell: Cell,
-    value: Fp,
+    value: Value<F>,
 }
 
-enum MaybeAlloc {
-    Alloc(Alloc),
-    Unalloc(Fp),
+enum MaybeAlloc<F: FieldExt> {
+    Alloc(Alloc<F>),
+    Unalloc(F),
 }
 
-pub struct MerkleChip {
+impl<F: FieldExt> MaybeAlloc<F> {
+    fn value(&self) -> Value<F> {
+        match self {
+            MaybeAlloc::Alloc(alloc) => alloc.value.clone(),
+            MaybeAlloc::Unalloc(value) => Value::known(value.clone()),
+        }
+    }
+
+    fn cell(&self) -> Cell {
+        match self {
+            MaybeAlloc::Alloc(alloc) => alloc.cell.clone(),
+            MaybeAlloc::Unalloc(_) => unreachable!(),
+        }
+    }
+}
+
+pub struct MerkleChip<F: FieldExt> {
     config: MerkleChipConfig,
+    _marker: PhantomData<F>,
 }
 
 #[derive(Clone, Debug)]
@@ -34,7 +58,7 @@ pub struct MerkleChipConfig {
     perm_digest: Permutation,
 }
 
-impl<F: Field + FieldExt> Chip<F> for MerkleChip {
+impl<F: FieldExt> Chip<F> for MerkleChip<F> {
     type Config = MerkleChipConfig;
     type Loaded = ();
 
@@ -47,12 +71,16 @@ impl<F: Field + FieldExt> Chip<F> for MerkleChip {
     }
 }
 
-impl MerkleChip {
+impl<F: FieldExt> MerkleChip<F> {
     fn new(config: MerkleChipConfig) -> Self {
-        MerkleChip { config }
+        MerkleChip {
+            config,
+            _marker: PhantomData,
+        }
     }
 
-    fn configure(cs: &mut ConstraintSystem<Fp>) -> MerkleChipConfig {
+    pub(crate) fn configure(cs: &mut ConstraintSystem<F>) -> MerkleChipConfig {
+        let g = F::random(ChaCha8Rng::from_seed([101u8; 32]));
         let a_col = cs.advice_column();
         let b_col = cs.advice_column();
         let c_col = cs.advice_column();
@@ -66,14 +94,14 @@ impl MerkleChip {
         cs.create_gate("public input", |cs| {
             let c = cs.query_advice(c_col, Rotation::cur());
             let pi = cs.query_instance(pub_col, Rotation::cur());
-            let s_pub = cs.query_selector(s_pub, Rotation::cur());
-            s_pub * (c - pi)
+            let s_pub = cs.query_selector(s_pub);
+            vec![s_pub * (c - pi)]
         });
 
         cs.create_gate("boolean constrain", |cs| {
             let c = cs.query_advice(c_col, Rotation::cur());
-            let s_bool = cs.query_selector(s_bool, Rotation::cur());
-            s_bool * c.clone() * (Expression::Constant(Fp::one()) - c)
+            let s_bool = cs.query_selector(s_bool);
+            vec![s_bool * c.clone() * (Expression::Constant(F::one()) - c)]
         });
 
         // |-------|-------|-------|--------|
@@ -102,10 +130,10 @@ impl MerkleChip {
             let a = cs.query_advice(a_col, Rotation::cur());
             let b = cs.query_advice(b_col, Rotation::cur());
             let bit = cs.query_advice(c_col, Rotation::cur());
-            let s_swap = cs.query_selector(s_swap, Rotation::cur());
+            let s_swap = cs.query_selector(s_swap);
             let l = cs.query_advice(a_col, Rotation::next());
             let r = cs.query_advice(b_col, Rotation::next());
-            s_swap * ((bit * Fp::from(2) * (b.clone() - a.clone()) - (l - a)) - (b - r))
+            vec![s_swap * ((bit * F::from(2) * (b.clone() - a.clone()) - (l - a)) - (b - r))]
         });
 
         // (l + gamma) * (r + gamma) = digest
@@ -113,9 +141,8 @@ impl MerkleChip {
             let l = cs.query_advice(a_col, Rotation::cur());
             let r = cs.query_advice(b_col, Rotation::cur());
             let digest = cs.query_advice(c_col, Rotation::cur());
-            let s_hash = cs.query_selector(s_hash, Rotation::cur());
-            s_hash
-                * ((l + Expression::Constant(*GAMMA)) * (r + Expression::Constant(*GAMMA)) - digest)
+            let s_hash = cs.query_selector(s_hash);
+            vec![s_hash * ((l + Expression::Constant(g)) * (r + Expression::Constant(g)) - digest)]
         });
 
         let perm_digest = Permutation::new(cs, &[c_col.into(), a_col.into()]);
@@ -135,22 +162,22 @@ impl MerkleChip {
 
     fn hash_leaf_layer(
         &self,
-        layouter: &mut impl Layouter<Fp>,
-        leaf: Fp,
-        path_elem: Fp,
-        c_bit: Fp,
-    ) -> Result<Alloc, Error> {
+        layouter: &mut impl Layouter<F>,
+        leaf: F,
+        path_elem: F,
+        c_bit: F,
+    ) -> Result<Alloc<F>, Error> {
         self.hash_layer_inner(layouter, MaybeAlloc::Unalloc(leaf), path_elem, c_bit, 0)
     }
 
     fn hash_non_leaf_layer(
         &self,
-        layouter: &mut impl Layouter<Fp>,
-        prev_digest: Alloc,
-        path_elem: Fp,
-        c_bit: Fp,
+        layouter: &mut impl Layouter<F>,
+        prev_digest: Alloc<F>,
+        path_elem: F,
+        c_bit: F,
         layer: usize,
-    ) -> Result<Alloc, Error> {
+    ) -> Result<Alloc<F>, Error> {
         self.hash_layer_inner(
             layouter,
             MaybeAlloc::Alloc(prev_digest),
@@ -162,13 +189,13 @@ impl MerkleChip {
 
     fn hash_layer_inner(
         &self,
-        layouter: &mut impl Layouter<Fp>,
-        leaf_or_digest: MaybeAlloc,
-        path_elem: Fp,
-        c_bit: Fp,
+        layouter: &mut impl Layouter<F>,
+        leaf_or_digest: MaybeAlloc<F>,
+        path_elem: F,
+        c_bit: F,
         layer: usize,
-    ) -> Result<Alloc, Error> {
-        let mut digest_alloc: Option<Alloc> = None;
+    ) -> Result<Alloc<F>, Error> {
+        let mut digest_alloc: Option<Alloc<F>> = None;
 
         layouter.assign_region(
             || "leaf layer",
@@ -189,7 +216,7 @@ impl MerkleChip {
                     },
                     self.config.a_col,
                     row_offset,
-                    || Ok(a_value),
+                    || a_value,
                 )?;
 
                 if layer > 0 {
@@ -204,14 +231,14 @@ impl MerkleChip {
                     || format!("path elem (layer {})", layer),
                     self.config.b_col,
                     row_offset,
-                    || Ok(path_elem),
+                    || Value::known(path_elem),
                 )?;
 
                 let _c_bit_cell = region.assign_advice(
                     || format!("challenge bit (layer {})", layer),
                     self.config.c_col,
                     row_offset,
-                    || Ok(c_bit),
+                    || Value::known(c_bit),
                 )?;
 
                 // Expose the challenge bit as a public input.
@@ -228,24 +255,24 @@ impl MerkleChip {
                 // digest as a public input for the tree's root.
                 row_offset += 1;
 
-                let (preimg_l_value, preimg_r_value): (Fp, Fp) = if c_bit == Fp::zero() {
-                    (a_value, path_elem)
+                let (preimg_l_value, preimg_r_value): (Value<F>, Value<F>) = if c_bit == F::zero() {
+                    (a_value, Value::known(path_elem))
                 } else {
-                    (path_elem, a_value)
+                    (Value::known(path_elem), a_value)
                 };
 
                 let _preimg_l_cell = region.assign_advice(
                     || format!("preimg_l (layer {})", layer),
                     self.config.a_col,
                     row_offset,
-                    || Ok(preimg_l_value),
+                    || preimg_l_value,
                 )?;
 
                 let _preimg_r_cell = region.assign_advice(
                     || format!("preimage right (layer {})", layer),
                     self.config.b_col,
                     row_offset,
-                    || Ok(preimg_r_value),
+                    || preimg_r_value,
                 )?;
 
                 let digest_value = mock_hash(preimg_l_value, preimg_r_value);
@@ -254,7 +281,7 @@ impl MerkleChip {
                     || format!("digest (layer {})", layer),
                     self.config.c_col,
                     row_offset,
-                    || Ok(digest_value),
+                    || digest_value,
                 )?;
 
                 digest_alloc = Some(Alloc {
