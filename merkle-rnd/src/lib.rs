@@ -1,167 +1,210 @@
-mod chip;
-mod r#const;
+mod tests;
 
-use chip::{MerkleChip, MerkleChipConfig};
-use halo2_proofs::{
-    arithmetic::FieldExt,
-    plonk::{Assignment, Circuit, ConstraintSystem, Error},
+use tests::{TestCommitDomain, TestHashDomain};
+
+use group::ff::{PrimeField, PrimeFieldBits};
+use halo2_gadgets::sinsemilla::chip::SinsemillaChip;
+use halo2_gadgets::sinsemilla::merkle::{
+    chip::{MerkleChip, MerkleConfig},
+    MerklePath,
 };
-use halo2curves::pasta::Fp;
+use halo2_gadgets::utilities::i2lebsp;
+use halo2_gadgets::utilities::lookup_range_check::LookupRangeCheckConfig;
+use halo2_gadgets::utilities::UtilitiesInstructions;
+use halo2_proofs::{
+    circuit::{Layouter, SimpleFloorPlanner, Value},
+    plonk::{Circuit, ConstraintSystem, Error},
+};
+use halo2curves::pasta::pallas;
 
-#[derive(Clone)]
-struct MerkleCircuit {
-    // private inputs
-    leaf: Option<Fp>,
-    path: Option<Fp>,
-    // public inputs: root is calculated within the circuit
-    c_bits: Option<Vec<Fp>>,
+use std::{convert::TryInto, iter};
+
+const MERKLE_DEPTH: usize = 32;
+
+#[derive(Default)]
+struct MyCircuit {
+    leaf: Value<pallas::Base>,
+    leaf_pos: Value<u32>,
+    merkle_path: Value<[pallas::Base; MERKLE_DEPTH]>,
 }
 
-impl<F: FieldExt> Circuit<F> for MerkleCircuit {
-    type Config = MerkleChipConfig;
+impl Circuit<pallas::Base> for MyCircuit {
+    type Config = (
+        MerkleConfig<TestHashDomain, TestCommitDomain, TestFixedBases>,
+        MerkleConfig<TestHashDomain, TestCommitDomain, TestFixedBases>,
+    );
+    type FloorPlanner = SimpleFloorPlanner;
 
-    fn configure(cs: &mut ConstraintSystem<F>) -> Self::Config {
-        MerkleChip::configure(cs)
+    fn without_witnesses(&self) -> Self {
+        Self::default()
     }
 
-    fn synthesize(&self, cs: &mut impl Assignment<F>, config: Self::Config) -> Result<(), Error> {
-        let mut layouter = SingleChipLayouter::new(cs)?;
-        let merkle_chip = MerkleChip::new(config);
-        let mut layer_digest = merkle_chip.hash_leaf_layer(
+    fn configure(meta: &mut ConstraintSystem<pallas::Base>) -> Self::Config {
+        let advices = [
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+        ];
+
+        // Shared fixed column for loading constants
+        let constants = meta.fixed_column();
+        meta.enable_constant(constants);
+
+        // NB: In the actual Action circuit, these fixed columns will be reused
+        // by other chips. For this test, we are creating new fixed columns.
+        let fixed_y_q_1 = meta.fixed_column();
+        let fixed_y_q_2 = meta.fixed_column();
+
+        // Fixed columns for the Sinsemilla generator lookup table
+        let lookup = (
+            meta.lookup_table_column(),
+            meta.lookup_table_column(),
+            meta.lookup_table_column(),
+        );
+
+        let range_check = LookupRangeCheckConfig::configure(meta, advices[9], lookup.0);
+
+        let sinsemilla_config_1 = SinsemillaChip::configure(
+            meta,
+            advices[5..].try_into().unwrap(),
+            advices[7],
+            fixed_y_q_1,
+            lookup,
+            range_check,
+        );
+        let config1 = MerkleChip::configure(meta, sinsemilla_config_1);
+
+        let sinsemilla_config_2 = SinsemillaChip::configure(
+            meta,
+            advices[..5].try_into().unwrap(),
+            advices[2],
+            fixed_y_q_2,
+            lookup,
+            range_check,
+        );
+        let config2 = MerkleChip::configure(meta, sinsemilla_config_2);
+
+        (config1, config2)
+    }
+
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<pallas::Base>,
+    ) -> Result<(), Error> {
+        // Load generator table (shared across both configs)
+        SinsemillaChip::<TestHashDomain, TestCommitDomain, TestFixedBases>::load(
+            config.0.sinsemilla_config.clone(),
             &mut layouter,
-            self.leaf.as_ref().unwrap().clone(),
-            self.path.as_ref().unwrap()[0],
-            self.c_bits.as_ref().unwrap()[0].clone(),
         )?;
-        for layer in 1..PATH_LEN {
-            layer_digest = merkle_chip.hash_non_leaf_layer(
-                &mut layouter,
-                layer_digest,
-                self.path.as_ref().unwrap()[layer].clone(),
-                self.c_bits.as_ref().unwrap()[layer].clone(),
-                layer,
-            )?;
-        }
+
+        // Construct Merkle chips which will be placed side-by-side in the circuit.
+        let chip_1 = MerkleChip::construct(config.0.clone());
+        let chip_2 = MerkleChip::construct(config.1.clone());
+
+        let leaf = chip_1.load_private(
+            layouter.namespace(|| ""),
+            config.0.cond_swap_config.a(),
+            self.leaf,
+        )?;
+
+        let path = MerklePath {
+            chips: [chip_1, chip_2],
+            domain: TestHashDomain,
+            leaf_pos: self.leaf_pos,
+            path: self.merkle_path,
+        };
+
+        let computed_final_root =
+            path.calculate_root(layouter.namespace(|| "calculate root"), leaf)?;
+
+        self.leaf
+            .zip(self.leaf_pos)
+            .zip(self.merkle_path)
+            .zip(computed_final_root.value())
+            .assert_if_known(|(((leaf, leaf_pos), merkle_path), computed_final_root)| {
+                // The expected final root
+                let final_root =
+                    merkle_path
+                        .iter()
+                        .enumerate()
+                        .fold(*leaf, |node, (l, sibling)| {
+                            let l = l as u8;
+                            let (left, right) = if leaf_pos & (1 << l) == 0 {
+                                (&node, sibling)
+                            } else {
+                                (sibling, &node)
+                            };
+
+                            use halo2_gadgets::sinsemilla::primitives as sinsemilla;
+                            let merkle_crh =
+                                sinsemilla::HashDomain::from_Q(TestHashDomain.Q().into());
+
+                            merkle_crh
+                                .hash(
+                                    iter::empty()
+                                        .chain(i2lebsp::<10>(l as u64).iter().copied())
+                                        .chain(
+                                            left.to_le_bits()
+                                                .iter()
+                                                .by_vals()
+                                                .take(pallas::Base::NUM_BITS as usize),
+                                        )
+                                        .chain(
+                                            right
+                                                .to_le_bits()
+                                                .iter()
+                                                .by_vals()
+                                                .take(pallas::Base::NUM_BITS as usize),
+                                        ),
+                                )
+                                .unwrap_or(pallas::Base::zero())
+                        });
+
+                // Check the computed final root against the expected final root.
+                computed_final_root == &&final_root
+            });
+
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod test {
-    use crate::r#const;
+mod tests {
+    use super::*;
+    use group::ff::Field;
+    use halo2_proofs::dev::MockProver;
+    use rand::{rngs::OsRng, RngCore};
 
     #[test]
-    fn merkle_tree() {
-        assert!(N_LEAFS.is_power_of_two());
+    fn merkle_chip() {
+        let mut rng = OsRng;
 
-        // Generate a Merkle tree from random data.
-        let tree = Tree::rand();
+        // Choose a random leaf and position
+        let leaf = pallas::Base::random(rng);
+        let pos = rng.next_u32();
 
-        // Generate a random challenge, i.e. a leaf index in `[0, N_LEAFS)`.
-        let c: usize = thread_rng().gen_range(0..N_LEAFS);
-        let c_bits: Vec<Fp> = (0..PATH_LEN)
-            .map(|i| {
-                if (c >> i) & 1 == 0 {
-                    Fp::zero()
-                } else {
-                    Fp::one()
-                }
-            })
+        // Choose a path of random inner nodes
+        let path: Vec<_> = (0..(MERKLE_DEPTH))
+            .map(|_| pallas::Base::random(rng))
             .collect();
 
-        // Create the public inputs. Every other row in the constraint system has a public input for a
-        // challenge bit, additionally the last row has a public input for the root.
-        let k = (N_ROWS_USED as f32).log2().ceil() as u32;
-        let mut pub_inputs = vec![Fp::zero(); 1 << k];
-        for i in 0..PATH_LEN {
-            pub_inputs[2 * i] = c_bits[i].clone();
-        }
-        pub_inputs[LAST_ROW] = tree.root();
+        // The root is provided as a public input in the Orchard circuit.
 
-        // Assert that the constraint system is satisfied for a witness corresponding to `pub_inputs`.
-        let circuit = MerkleCircuit {
-            leaf: Some(tree.leafs()[c].clone()),
-            path: Some(tree.gen_path(c)),
-            c_bits: Some(c_bits),
+        let circuit = MyCircuit {
+            leaf: Value::known(leaf),
+            leaf_pos: Value::known(pos),
+            merkle_path: Value::known(path.try_into().unwrap()),
         };
-        let prover = MockProver::run(k, &circuit, vec![pub_inputs.clone()]).unwrap();
-        assert!(prover.verify().is_ok());
 
-        // Assert that changing the public challenge causes the constraint system to become unsatisfied.
-        let mut bad_pub_inputs = pub_inputs.clone();
-        bad_pub_inputs[0] = if pub_inputs[0] == Fp::zero() {
-            Fp::one()
-        } else {
-            Fp::zero()
-        };
-        let prover = MockProver::run(k, &circuit, vec![bad_pub_inputs]).unwrap();
-        let res = prover.verify();
-        assert!(res.is_err());
-        if let Err(errors) = res {
-            assert_eq!(errors.len(), 1);
-            if let VerifyFailure::Gate { gate_name, row, .. } = errors[0] {
-                assert_eq!(gate_name, "public input");
-                assert_eq!(row, 0);
-            } else {
-                panic!("expected public input gate failure");
-            }
-        }
-
-        // Assert that changing the public root causes the constraint system to become unsatisfied.
-        let mut bad_pub_inputs = pub_inputs.clone();
-        bad_pub_inputs[LAST_ROW] += Fp::one();
-        let prover = MockProver::run(k, &circuit, vec![bad_pub_inputs]).unwrap();
-        let res = prover.verify();
-        assert!(res.is_err());
-        if let Err(errors) = res {
-            assert_eq!(errors.len(), 1);
-            if let VerifyFailure::Gate { gate_name, row, .. } = errors[0] {
-                assert_eq!(gate_name, "public input");
-                assert_eq!(row, LAST_ROW);
-            } else {
-                panic!("expected public input gate failure");
-            }
-        }
-
-        // Assert that a non-boolean challenge bit causes the boolean constrain and swap gates to fail.
-        let mut bad_pub_inputs = pub_inputs.clone();
-        bad_pub_inputs[0] = Fp::from(2);
-        let mut bad_circuit = circuit.clone();
-        bad_circuit.c_bits.as_mut().unwrap()[0] = Fp::from(2);
-        let prover = MockProver::run(k, &bad_circuit, vec![bad_pub_inputs]).unwrap();
-        let res = prover.verify();
-        assert!(res.is_err());
-        if let Err(errors) = res {
-            assert_eq!(errors.len(), 2);
-            if let VerifyFailure::Gate { gate_name, row, .. } = errors[0] {
-                assert_eq!(gate_name, "boolean constrain");
-                assert_eq!(row, 0);
-            } else {
-                panic!("expected boolean constrain gate failure");
-            }
-            if let VerifyFailure::Gate { gate_name, row, .. } = errors[1] {
-                assert_eq!(gate_name, "swap");
-                assert_eq!(row, 0);
-            } else {
-                panic!("expected swap gate failure");
-            }
-        }
-
-        // Assert that changing the witnessed path causes the constraint system to become unsatisfied
-        // when checking that the calculated root is equal to the public input root.
-        let mut bad_circuit = circuit.clone();
-        bad_circuit.path.as_mut().unwrap()[0] += Fp::one();
-        let prover = MockProver::run(k, &bad_circuit, vec![pub_inputs.clone()]).unwrap();
-        let res = prover.verify();
-        assert!(res.is_err());
-        if let Err(errors) = res {
-            assert_eq!(errors.len(), 1);
-            if let VerifyFailure::Gate { gate_name, row, .. } = errors[0] {
-                assert_eq!(gate_name, "public input");
-                assert_eq!(row, LAST_ROW);
-            } else {
-                panic!("expected public input gate failure");
-            }
-        }
+        let prover = MockProver::run(11, &circuit, vec![]).unwrap();
+        assert_eq!(prover.verify(), Ok(()))
     }
 }
