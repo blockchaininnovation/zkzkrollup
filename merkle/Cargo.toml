@@ -12,8 +12,8 @@ halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.gi
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22", package = "halo2_gadgets" }
 halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = '0.3.0' }
 group = "0.13.0"
-smt = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "2b87650e3206f7239827f70732a50cdd7dd07048" }
-chiplet = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "2b87650e3206f7239827f70732a50cdd7dd07048" }
+smt = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "65fec3fe688889fb8a06ffaba6fd30d8378aa98e" }
+chiplet = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "65fec3fe688889fb8a06ffaba6fd30d8378aa98e" }
 
 # standard crate data is left out
 [dev-dependencies]
