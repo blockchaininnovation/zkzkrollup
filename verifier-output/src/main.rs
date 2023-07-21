@@ -21,7 +21,7 @@ use hex;
 use itertools::Itertools;
 use rand::{rngs::OsRng, RngCore};
 use snark_verifier::{
-    loader::evm::{self, encode_calldata, Address, EvmLoader, ExecutorBuilder},
+    loader::evm::{self, encode_calldata, EvmLoader},
     pcs::kzg::{Gwc19, KzgAs},
     system::halo2::{compile, transcript::evm::EvmTranscript, Config},
     verifier::{self, SnarkVerifier},
