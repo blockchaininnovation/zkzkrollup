@@ -8,3 +8,6 @@ halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.gi
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", package = "halo2_gadgets" }
 smt = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "b2f9e9719c8581214aeaafc1e8e4ccb491d80149" }
 chiplet = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "b2f9e9719c8581214aeaafc1e8e4ccb491d80149" }
+
+[dev-dependencies]
+rand = "0.8"
