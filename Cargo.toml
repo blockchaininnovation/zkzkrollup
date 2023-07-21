@@ -3,7 +3,6 @@ members = [
     "confidential-transfer",
     "hash",
     "merkle",
-    "merkle-rnd",
     "recursion",
     "verifier-output"
 ]
