@@ -134,14 +134,14 @@ mod test {
     use smt::poseidon::{Poseidon, SmtP128Pow5T3};
 
     use halo2_proofs::arithmetic::Field;
-    use halo2_proofs::halo2curves::pasta::{EqAffine, Fp};
+    use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
     use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
-    use halo2_proofs::poly::ipa::{
-        commitment::{IPACommitmentScheme, ParamsIPA},
-        multiopen::ProverIPA,
+    use halo2_proofs::poly::commitment::ParamsProver;
+    use halo2_proofs::poly::kzg::{
+        commitment::{KZGCommitmentScheme, ParamsKZG},
+        multiopen::{ProverGWC, VerifierGWC},
         strategy::SingleStrategy,
     };
-    use halo2_proofs::poly::{commitment::ParamsProver, VerificationStrategy};
     use halo2_proofs::transcript::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     };
@@ -152,35 +152,41 @@ mod test {
 
         let empty_leaf = [0u8; 64];
         let rng = OsRng;
-        let leaves = [Fp::random(rng), Fp::random(rng), Fp::random(rng)];
+        let leaves = [Fr::random(rng), Fr::random(rng), Fr::random(rng)];
         const HEIGHT: usize = 3;
 
-        let circuit = MerkleCircuit::<Fp, SmtP128Pow5T3<Fp, 0>, Poseidon<Fp, 2>, 3, 2, HEIGHT> {
+        let circuit = MerkleCircuit::<Fr, SmtP128Pow5T3<Fr, 0>, Poseidon<Fr, 2>, 3, 2, HEIGHT> {
             leaves,
             empty_leaf,
-            hasher: Poseidon::<Fp, 2>::new(),
+            hasher: Poseidon::<Fr, 2>::new(),
             _spec: PhantomData,
         };
 
-        let params: ParamsIPA<EqAffine> = ParamsIPA::new(k);
+        let params: ParamsKZG<Bn256> = ParamsKZG::new(k);
         let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk, &circuit).expect("keygen_pk should not fail");
 
-        let mut transcript = Blake2bWrite::<_, _, Challenge255<EqAffine>>::init(vec![]);
-        create_proof::<IPACommitmentScheme<EqAffine>, ProverIPA<EqAffine>, _, _, _, _>(
-            &params,
-            &pk,
-            &[circuit],
-            &[&[]],
-            OsRng,
-            &mut transcript,
-        )
+        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+        create_proof::<
+            KZGCommitmentScheme<Bn256>,
+            ProverGWC<'_, Bn256>,
+            Challenge255<G1Affine>,
+            _,
+            Blake2bWrite<Vec<u8>, G1Affine, Challenge255<_>>,
+            _,
+        >(&params, &pk, &[circuit], &[&[]], OsRng, &mut transcript)
         .expect("proof generation should not fail");
         let proof: Vec<u8> = transcript.finalize();
 
         let strategy = SingleStrategy::new(&params);
         let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
-        let result = verify_proof(&params, pk.get_vk(), strategy, &[&[]], &mut transcript);
+        let result = verify_proof::<
+            KZGCommitmentScheme<Bn256>,
+            VerifierGWC<'_, Bn256>,
+            Challenge255<G1Affine>,
+            Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
+            SingleStrategy<'_, Bn256>,
+        >(&params, pk.get_vk(), strategy, &[&[]], &mut transcript);
         assert!(result.is_ok());
     }
 }
