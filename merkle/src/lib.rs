@@ -150,7 +150,7 @@ impl<
     }
 
     pub fn instances(&self) -> Vec<Vec<Fr>> {
-        vec![vec![]]
+        vec![]
     }
 }
 
