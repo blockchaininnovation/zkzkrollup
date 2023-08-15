@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
-
 use chiplet::smt_chip::{PathChip, PathConfig};
 use chiplet::utilities::{AssertEqualChip, AssertEqualConfig};
 use smt::poseidon::FieldHasher;
 use smt::smt::SparseMerkleTree;
+use std::marker::PhantomData;
 
+use halo2_curves::bn256::Fr;
 use halo2_gadgets::poseidon::primitives::Spec;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
 use halo2_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error};
 
 #[derive(Clone)]
-struct MerkleConfig<
+pub struct MerkleConfig<
     F: FieldExt,
     S: Spec<F, WIDTH, RATE>,
     H: FieldHasher<F, 2>,
@@ -25,7 +25,8 @@ struct MerkleConfig<
     _hasher: PhantomData<H>,
 }
 
-struct MerkleCircuit<
+#[derive(Clone)]
+pub struct MerkleCircuit<
     F: FieldExt,
     S: Spec<F, WIDTH, RATE>,
     H: FieldHasher<F, 2>,
@@ -123,6 +124,33 @@ impl<
         assert_equal_chip.assert_equal(&mut layouter, res, one)?;
 
         Ok(())
+    }
+}
+
+impl<
+        F: FieldExt,
+        S: Spec<F, WIDTH, RATE> + Clone,
+        H: FieldHasher<F, 2> + Clone,
+        const WIDTH: usize,
+        const RATE: usize,
+        const N: usize,
+    > MerkleCircuit<F, S, H, WIDTH, RATE, N>
+{
+    pub fn new(leaves: [F; 3], empty_leaf: [u8; 64], hasher: H) -> Self {
+        Self {
+            leaves,
+            empty_leaf,
+            hasher,
+            _spec: PhantomData,
+        }
+    }
+
+    pub fn num_instance() -> Vec<usize> {
+        vec![]
+    }
+
+    pub fn instances(&self) -> Vec<Vec<Fr>> {
+        vec![]
     }
 }
 
