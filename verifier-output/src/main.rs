@@ -1,11 +1,7 @@
 use halo2_curves::bn256::{Bn256, Fq, Fr, G1Affine};
 use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
     dev::MockProver,
-    plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, Advice, Circuit, Column,
-        ConstraintSystem, Error, Fixed, Instance, ProvingKey, VerifyingKey,
-    },
+    plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ProvingKey, VerifyingKey},
     poly::{
         commitment::{Params, ParamsProver},
         kzg::{
@@ -13,15 +9,15 @@ use halo2_proofs::{
             multiopen::{ProverGWC, VerifierGWC},
             strategy::AccumulatorStrategy,
         },
-        Rotation, VerificationStrategy,
+        VerificationStrategy,
     },
     transcript::{TranscriptReadBuffer, TranscriptWriterBuffer},
 };
 use hex;
 use itertools::Itertools;
-use rand::{rngs::OsRng, RngCore};
+use rand::rngs::OsRng;
 use snark_verifier::{
-    loader::evm::{self, encode_calldata, Address, EvmLoader, ExecutorBuilder},
+    loader::evm::{self, encode_calldata, EvmLoader},
     pcs::kzg::{Gwc19, KzgAs},
     system::halo2::{compile, transcript::evm::EvmTranscript, Config},
     verifier::{self, SnarkVerifier},
@@ -31,122 +27,6 @@ use std::io::Write;
 use std::rc::Rc;
 
 type PlonkVerifier = verifier::plonk::PlonkVerifier<KzgAs<Bn256, Gwc19>>;
-
-#[derive(Clone, Copy)]
-struct StandardPlonkConfig {
-    a: Column<Advice>,
-    b: Column<Advice>,
-    c: Column<Advice>,
-    q_a: Column<Fixed>,
-    q_b: Column<Fixed>,
-    q_c: Column<Fixed>,
-    q_ab: Column<Fixed>,
-    constant: Column<Fixed>,
-    #[allow(dead_code)]
-    instance: Column<Instance>,
-}
-
-impl StandardPlonkConfig {
-    fn configure(meta: &mut ConstraintSystem<Fr>) -> Self {
-        let [a, b, c] = [(); 3].map(|_| meta.advice_column());
-        let [q_a, q_b, q_c, q_ab, constant] = [(); 5].map(|_| meta.fixed_column());
-        let instance = meta.instance_column();
-
-        [a, b, c].map(|column| meta.enable_equality(column));
-
-        meta.create_gate(
-            "q_a·a + q_b·b + q_c·c + q_ab·a·b + constant + instance = 0",
-            |meta| {
-                let [a, b, c] = [a, b, c].map(|column| meta.query_advice(column, Rotation::cur()));
-                let [q_a, q_b, q_c, q_ab, constant] = [q_a, q_b, q_c, q_ab, constant]
-                    .map(|column| meta.query_fixed(column, Rotation::cur()));
-                let instance = meta.query_instance(instance, Rotation::cur());
-                Some(
-                    q_a * a.clone()
-                        + q_b * b.clone()
-                        + q_c * c
-                        + q_ab * a * b
-                        + constant
-                        + instance,
-                )
-            },
-        );
-
-        StandardPlonkConfig {
-            a,
-            b,
-            c,
-            q_a,
-            q_b,
-            q_c,
-            q_ab,
-            constant,
-            instance,
-        }
-    }
-}
-
-#[derive(Clone, Default)]
-struct StandardPlonk(Fr);
-
-impl StandardPlonk {
-    fn rand<R: RngCore>(mut rng: R) -> Self {
-        Self(Fr::from(rng.next_u32() as u64))
-    }
-
-    fn num_instance() -> Vec<usize> {
-        vec![1]
-    }
-
-    fn instances(&self) -> Vec<Vec<Fr>> {
-        vec![vec![self.0]]
-    }
-}
-
-impl Circuit<Fr> for StandardPlonk {
-    type Config = StandardPlonkConfig;
-    type FloorPlanner = SimpleFloorPlanner;
-
-    fn without_witnesses(&self) -> Self {
-        Self::default()
-    }
-
-    fn configure(meta: &mut ConstraintSystem<Fr>) -> Self::Config {
-        meta.set_minimum_degree(4);
-        StandardPlonkConfig::configure(meta)
-    }
-
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl Layouter<Fr>,
-    ) -> Result<(), Error> {
-        layouter.assign_region(
-            || "",
-            |mut region| {
-                region.assign_advice(|| "", config.a, 0, || Value::known(self.0))?;
-                region.assign_fixed(|| "", config.q_a, 0, || Value::known(-Fr::one()))?;
-
-                region.assign_advice(|| "", config.a, 1, || Value::known(-Fr::from(5)))?;
-                for (idx, column) in (1..).zip([
-                    config.q_a,
-                    config.q_b,
-                    config.q_c,
-                    config.q_ab,
-                    config.constant,
-                ]) {
-                    region.assign_fixed(|| "", column, 1, || Value::known(Fr::from(idx)))?;
-                }
-
-                let a = region.assign_advice(|| "", config.a, 2, || Value::known(Fr::one()))?;
-                a.copy_advice(|| "", &mut region, config.b, 3)?;
-                a.copy_advice(|| "", &mut region, config.c, 4)?;
-
-                Ok(())
-            },
-        )
-    }
-}
 
 fn gen_srs(k: u32) -> ParamsKZG<Bn256> {
     ParamsKZG::<Bn256>::setup(k, OsRng)
@@ -227,11 +107,29 @@ fn gen_evm_verifier(
 }
 
 fn main() {
-    let params = gen_srs(8);
+    use halo2_proofs::arithmetic::Field;
+    use smt::poseidon::{Poseidon, SmtP128Pow5T3};
+    use sparse_merkle::MerkleCircuit;
 
-    let circuit = StandardPlonk::rand(OsRng);
+    let k = 13;
+    let params = gen_srs(k);
+
+    let empty_leaf = [0u8; 64];
+    let rng = OsRng;
+    let leaves = [Fr::random(rng), Fr::random(rng), Fr::random(rng)];
+    const HEIGHT: usize = 3;
+
+    let circuit = MerkleCircuit::<Fr, SmtP128Pow5T3<Fr, 0>, Poseidon<Fr, 2>, 3, 2, HEIGHT>::new(
+        leaves,
+        empty_leaf,
+        Poseidon::<Fr, 2>::new(),
+    );
     let pk = gen_pk(&params, &circuit);
-    let deployment_code = gen_evm_verifier(&params, pk.get_vk(), StandardPlonk::num_instance());
+    let deployment_code = gen_evm_verifier(
+        &params,
+        pk.get_vk(),
+        MerkleCircuit::<Fr, SmtP128Pow5T3<Fr, 0>, Poseidon<Fr, 2>, 3, 2, HEIGHT>::num_instance(),
+    );
 
     let proof = gen_proof(&params, &pk, circuit.clone(), circuit.instances());
 
