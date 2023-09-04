@@ -8,31 +8,67 @@ interface IRollup {
     bytes merkleRoot;
 
     /**
-     * @dev on-chain users information
+     * @dev on-chain users state root
+     */
+    uint64 depositIndex;
+
+    /**
+     * @dev individual number index
+     */
+    uint64 individualNumberIndex;
+
+    /**
+     * @dev on-chain deposit information
+     * @param individualNumber individual number index
+     * @param jubjubAddress EdDSA depositor address
      */
     struct leafInfo {
-        uint32 index;
-        uint64 batch;
-        address ethAddress;
+        uint64 individualNumber;
+        address jubjubAddress;
     }
 
     /**
-     * @dev on-chain users Merkle tree
+     * @dev on-chain deposit Merkle tree
+     * key is `depositIndex`
      */
-    mapping(uint256 => leafInfo) treeInfo;
+    mapping(uint64 => leafInfo) depositTreeInfo;
+
+    /**
+     * @dev on-chain withdraw information
+     */
+    struct withdrawInfo {
+        bool isWithdraw;
+        uint256 left_cipher_x;
+        uint256 left_cipher_y;
+        uint256 right_cipher_x;
+        uint256 right_cipher_y;
+    }
+
+    /**
+     * @dev on-chain deposit Merkle tree
+     * key is EdDSA address
+     */
+    mapping(address => withdrawInfo) withdrawTreeInfo;
 
     /**
      * @dev Emitted when `amount` is deposited by one account (`from`)
      *
-     * Note that `from` is EdDSA-based address.
-     * Address format is aligned with Zether.
+     * Address format and cipher text are aligned with Zether.
      * https://crypto.stanford.edu/~buenz/papers/zether.pdf#page=9
-     * Encrypted balance is expressed as following params
-     * left_cipher_x, left_cipher_y, right_cipher_x, right_cipher_y
-     * EdDSA-based address is expressed as following params
-     * from, public_key_x, public_key_y
+     *
+     * @param individual_number Individual Number accosiated to EdDSA address
+     * @param from EdDSA depositor address
+     * @param public_key_x EdDSA depositor address x coordinate
+     * @param public_key_y EdDSA depositor address y coordinate
+     * @param left_cipher_x Left cipher text x coordinate
+     * @param left_cipher_y Left cipher text y coordinate
+     * @param right_cipher_x Right cipher text x coordinate
+     * @param right_cipher_y Right cipher text y coordinate
+     *
+     * contract add `deposit` transaction to treeInfo and update `merkleRoot`
      */
     event Deposit(
+        uint64 individual_number,
         address from,
         uint256 public_key_x,
         uint256 public_key_y,
@@ -45,16 +81,31 @@ interface IRollup {
     /**
      * @dev Deposit when `amount` of ETH to contract
      *
-     * Note that `from` is EdDSA-based address.
-     * Users do following steps
-     * 1. generate EdDSA-based address locally.
-     * 2. encrypt `amount` by EdDSA-based private key
-     * 3. generate `proof` for valid encryption
+     * @param from EdDSA depositor address
+     * @param public_key_x EdDSA depositor address x coordinate
+     * @param public_key_y EdDSA depositor address y coordinate
+     * @param amount deposit ETH amount
+     * @param left_cipher_x Left cipher text x coordinate
+     * @param left_cipher_y Left cipher text y coordinate
+     * @param right_cipher_x Right cipher text x coordinate
+     * @param right_cipher_y Right cipher text y coordinate
+     * @param proof zero knowledge proof proves follows statement
      *
-     * Contract does following steps
-     * 1. verify `proof`
-     * 2. add deposit transaction to deposit queue
-     * 3. increment deposit index
+     * Proof Statement
+     * 1. `from` is hash of `public_key_x` and `public_key_y`
+     * 2. `left_cipher_x`, `left_cipher_y` and `right_cipher_x`, `right_cipher_y`
+     *    are encrypted number of `amount`
+     * 3. `left_cipher_x`, `left_cipher_y` and `right_cipher_x`, `right_cipher_y`
+     *    are encrypted by `from` private key
+     *
+     * Constract Process
+     * 1. verify proof, revert if invalid
+     * 2. check `amount` and msg.value are the same, revert if invalid
+     * 3. construct `leafInfo` and store it to `treeInfo` by refering current
+     *    `depositIndex` and `individualNumberIndex`
+     * 4. emit `Deposit` event
+     * 5. increment `depositIndex` and `individualNumberIndex`
+     *
      */
     function deposit(
         address: from,
@@ -71,17 +122,26 @@ interface IRollup {
     /**
      * @dev Withdraw ETH to `to` address
      *
-     * Note that `to` is ECDSA-based address
-     * Note that `from` is EdDSA-based address.
-     * Users do following steps
-     * 1. check the raw `amount` by decrypting encrypted balance.
-     * 2. generate `proof` for valid decryption
+     * @param to ECDSA receipt address
+     * @param from EdDSA depositor address
+     * @param amount withdraw ETH amount
+     * @param left_cipher_x Left cipher text x coordinate
+     * @param left_cipher_y Left cipher text y coordinate
+     * @param right_cipher_x Right cipher text x coordinate
+     * @param right_cipher_y Right cipher text y coordinate
+     * @param proof zero knowledge proof proves follows statement
+     *
+     * Proof Statement
+     * 1. knowledge of `from` address private key
+     * 2. `left_cipher_x`, `left_cipher_y` and `right_cipher_x`, `right_cipher_y`
+     *    are encrypted number of `amount`
+     * 3. `left_cipher_x`, `left_cipher_y` and `right_cipher_x`, `right_cipher_y`
+     *    are encrypted by `from` private key
      *
      * Contract does following steps
-     * 1. verify `proof`
-     * 2. check whether the transaction is in withdraw queue
-     * 3. delete transaction from withdraw queue
-     * 4. transfer `amount` ETH to `to`
+     * 1. verify proof, revert if invalid
+     * 2. transfer `amount` ETH to `to` address
+     *
      */
     function withdraw(
         address: to,
