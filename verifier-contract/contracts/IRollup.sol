@@ -35,9 +35,14 @@ interface IRollup {
 
     /**
      * @dev on-chain withdraw information
+     * @param is_withdraw is withdraw done
+     * @param left_cipher_x Left cipher text x coordinate
+     * @param left_cipher_y Left cipher text y coordinate
+     * @param right_cipher_x Right cipher text x coordinate
+     * @param right_cipher_y Right cipher text y coordinate
      */
     struct withdrawInfo {
-        bool isWithdraw;
+        bool is_withdraw;
         uint256 left_cipher_x;
         uint256 left_cipher_y;
         uint256 right_cipher_x;
@@ -140,7 +145,9 @@ interface IRollup {
      *
      * Contract does following steps
      * 1. verify proof, revert if invalid
-     * 2. transfer `amount` ETH to `to` address
+     * 2. check if withdraw transaction is in `withdrawTreeInfo`
+     * 3. turn `is_withdraw` to true
+     * 4. transfer `amount` ETH to `to` address
      *
      */
     function withdraw(
