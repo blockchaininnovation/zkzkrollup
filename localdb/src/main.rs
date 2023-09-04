@@ -10,7 +10,7 @@ struct Account {
 
 #[derive(Debug)]
 struct State {
-    _id: u32,
+    account_id: u32,
     balance_encrypted: String,
     created_at: String,
     updated_at: String,
