@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rand = "0.8"
-halo2_curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.1", package = "halo2curves" }
+sha2 = { version = "0.10.2", default-features = false }
+micromath = "2.0.0"
+num-bigint = "0.4.3"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", package = "halo2_proofs" }
 halo2_gadgets = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", package = "halo2_gadgets" }
-smt = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "b2f9e9719c8581214aeaafc1e8e4ccb491d80149" }
-chiplet = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "b2f9e9719c8581214aeaafc1e8e4ccb491d80149" }
+halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = '0.3.0' }
+group = "0.13.0"
+smt = { git = "https://github.com/young-rocks/rocks-smt.git", rev = "c3b2b87cc0f622f40e707636f678d31e47ef8854" }
+chiplet = { git = "https://github.com/young-rocks/rocks-smt.git", rev = "c3b2b87cc0f622f40e707636f678d31e47ef8854" }
 
 [dev-dependencies]
 rand = "0.8"
