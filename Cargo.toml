@@ -5,6 +5,7 @@ members = [
     "merkle",
     "recursion",
     "verifier-output",
+    "localdb"
 ]
 exclude = ["verifier-contract", "docs", "draft"]
 
