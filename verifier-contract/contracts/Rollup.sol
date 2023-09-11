@@ -4,12 +4,6 @@ pragma solidity ^0.8.9;
 import { IRollup } from "./IRollup.sol";
 
 contract Rollup is IRollup {
-    // on-chain users state root
-    bytes merkleRoot;
-    // deposit transaction index
-    uint64 depositIndex;
-    // individual number index
-    uint64 individualNumberIndex;
     // ayer 2 operator address
     address operator;
     // deposit function verifier contract
@@ -19,11 +13,12 @@ contract Rollup is IRollup {
     // withdraw function verifier contract
     address withdrawVerifier;
 
-    // on-chain withdraw Merkle tree key is EdDSA address
-    mapping(address => withdrawInfo) withdrawTreeInfo;
-
-    // on-chain deposit Merkle tree key is `depositIndex`
-    mapping(uint64 => leafInfo) depositTreeInfo;
+    // on-chain users state root
+    bytes merkleRoot;
+    // deposit transaction index
+    uint64 depositIndex;
+    // individual number index
+    uint64 individualNumberIndex;
 
     /**
      * on-chain deposit information
@@ -35,9 +30,18 @@ contract Rollup is IRollup {
         address jubjubAddress;
     }
 
+    // on-chain withdraw Merkle tree key is EdDSA address
+    mapping(address => withdrawInfo) withdrawTreeInfo;
+    // on-chain deposit Merkle tree key is `depositIndex`
+    mapping(uint64 => leafInfo) depositTreeInfo;
+
     constructor(address _batchVerifier) {
         operator = msg.sender;
         batchVerifier = _batchVerifier;
+    }
+
+    function getStateRoot() external view returns (bytes memory) {
+        return merkleRoot;
     }
 
     function deposit(
@@ -66,12 +70,12 @@ contract Rollup is IRollup {
     function batch(
         bytes memory current_root,
         bytes memory new_root,
-        bytes calldata transactions,
+        bytes calldata _transactions,
         bytes calldata proof
-    ) external {}
-
-    function verify(bytes calldata input) external view returns (bool) {
-        (bool success, ) = batchVerifier.staticcall(input);
-        return success;
+    ) external {
+        (bool success, ) = batchVerifier.staticcall(proof);
+        if (success) {
+            merkleRoot = new_root;
+        }
     }
 }
