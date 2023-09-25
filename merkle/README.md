@@ -18,3 +18,21 @@ Check whether the transactions sender-receiver pair are in the Markle tree.
 ### Update Proof
 
 Check whether all the intermediate state roots are valid.
+
+### Operator Precomputation
+
+- Off-Circuit
+
+1. Receive users transaction
+2. Verify signature
+3. Check whether the account is in Merkle tree
+4. Process transaction and generate intermediate Proof
+5. Compute transaction Merkle tree root
+
+- On-Circuit
+
+1. Pass transactions, intermediate Proof
+2. Prove signature verification
+3. Prove the sender-receiver pair is in Merkle tree
+4. Prove the Merkle tree update by intermediate proof
+5. Prove the transaction in transaction Merkle root
