@@ -7,7 +7,7 @@ describe("Verifier", function () {
 
     beforeEach(async () => {
       // verifier contract bytecode and calldata
-      const CONTRACT_BYTECODE = await fs.readFile("./deployment_code.txt", "utf-8");
+      const CONTRACT_BYTECODE = await fs.readFile("./rawdata/deployment_code.txt", "utf-8");
 
       // verifier contract deployer
       const signer = await ethers.getSigners();
@@ -27,7 +27,7 @@ describe("Verifier", function () {
     })
 
     it("Should update state root", async function () {
-      const proof = await fs.readFile("./calldata.txt", "utf-8");
+      const proof = await fs.readFile("./rawdata/calldata.txt", "utf-8");
       const currentRoot = "0x"
       const newRoot = "0x2bae4558bd55acffed88900450df52615f0f101574fcbac3d106bb407a196065"
       const transactions = "0x1b5b9ccb3e8d006a5230de9bda23ff91edc794d4f56410560830b418528e446c"
