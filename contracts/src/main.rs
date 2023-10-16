@@ -136,8 +136,8 @@ fn main() {
     let calldata = encode_calldata(&circuit.instances(), &proof);
     let deployment_code_hex = "0x".to_string() + &hex::encode(deployment_code);
     let calldata_hex = "0x".to_string() + &hex::encode(calldata);
-    let mut file = File::create("deployment_code.txt").unwrap();
+    let mut file = File::create("rawdata/deployment_code.txt").unwrap();
     file.write_all(deployment_code_hex.as_bytes()).unwrap();
-    let mut file = File::create("calldata.txt").unwrap();
+    let mut file = File::create("rawdata/calldata.txt").unwrap();
     file.write_all(calldata_hex.as_bytes()).unwrap();
 }

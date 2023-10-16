@@ -3,37 +3,6 @@ pragma solidity ^0.8.9;
 
 interface IRollup {
     /**
-     * @dev on-chain users state root
-     */
-    bytes merkleRoot;
-
-    /**
-     * @dev on-chain users state root
-     */
-    uint64 depositIndex;
-
-    /**
-     * @dev individual number index
-     */
-    uint64 individualNumberIndex;
-
-    /**
-     * @dev on-chain deposit information
-     * @param individualNumber individual number index
-     * @param jubjubAddress EdDSA depositor address
-     */
-    struct leafInfo {
-        uint64 individualNumber;
-        address jubjubAddress;
-    }
-
-    /**
-     * @dev on-chain deposit Merkle tree
-     * key is `depositIndex`
-     */
-    mapping(uint64 => leafInfo) depositTreeInfo;
-
-    /**
      * @dev on-chain withdraw information
      * @param is_withdraw is withdraw done
      * @param left_cipher_x Left cipher text x coordinate
@@ -48,12 +17,6 @@ interface IRollup {
         uint256 right_cipher_x;
         uint256 right_cipher_y;
     }
-
-    /**
-     * @dev on-chain deposit Merkle tree
-     * key is EdDSA address
-     */
-    mapping(address => withdrawInfo) withdrawTreeInfo;
 
     /**
      * @dev Emitted when `amount` is deposited by one account (`from`)
@@ -80,7 +43,7 @@ interface IRollup {
         uint256 left_cipher_x,
         uint256 left_cipher_y,
         uint256 right_cipher_x,
-        uint256 right_cipher_y,
+        uint256 right_cipher_y
     );
 
     /**
@@ -113,7 +76,7 @@ interface IRollup {
      *
      */
     function deposit(
-        address: from,
+        address from,
         uint256 public_key_x,
         uint256 public_key_y,
         uint32 amount,
@@ -122,7 +85,7 @@ interface IRollup {
         uint256 right_cipher_x,
         uint256 right_cipher_y,
         bytes calldata proof
-    );
+    ) external;
 
     /**
      * @dev Withdraw ETH to `to` address
@@ -151,15 +114,15 @@ interface IRollup {
      *
      */
     function withdraw(
-        address: to,
-        address: from,
+        address to,
+        address from,
         uint32 amount,
         uint256 left_cipher_x,
         uint256 left_cipher_y,
         uint256 right_cipher_x,
         uint256 right_cipher_y,
         bytes calldata proof
-    );
+    ) external;
 
     /**
      * @dev Update Merkle tree root
@@ -171,9 +134,9 @@ interface IRollup {
      * 2. update Merkle root to `new_root`
      */
     function batch(
-        bytes: current_root,
-        bytes: new_root,
-        bytes calldata: transactions,
+        bytes memory current_root,
+        bytes memory new_root,
+        bytes calldata transactions,
         bytes calldata proof
-    )
+    ) external;
 }
