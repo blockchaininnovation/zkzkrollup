@@ -1,13 +1,12 @@
 [workspace]
 members = [
     "confidential-transfer",
+    "contracts",
     "hash",
     "merkle",
     "recursion",
-    "verifier-output",
     "localdb"
 ]
-exclude = ["verifier-contract", "docs", "draft"]
 
 # [patch."https://github.com/young-rocks/halo2.git"]
 # halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_19", package = "halo2_proofs" }
