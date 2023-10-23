@@ -1,3 +1,5 @@
+use log::error;
+use rusqlite::Map;
 use rusqlite::{params, Connection, Result};
 
 use std::collections::BTreeMap;
@@ -50,22 +52,24 @@ fn insert_account(con: &Connection, a: &Account) -> Result<usize, rusqlite::Erro
     )?);
 }
 
+fn delete_all_account(con: &Connection) -> Result<usize, rusqlite::Error> {
+    return Ok(con.execute("delete from account", ())?);
+}
+
 fn select_accounts_all(con: &Connection) -> Vec<Account> {
-    let mut ret = Vec::new();
-
+    // let ret: Vec<Account> = Vec::new();
     let mut stmt = con.prepare("select * from account").unwrap();
-    stmt.query_map(params![], |row| {
-        let a = Account {
-            _id: row.get(0).unwrap(),
-            public_key_for_eddsa: row.get(1).unwrap(),
-            created_at: row.get(2).unwrap(),
-            updated_at: row.get(3).unwrap(),
-        };
-        ret.push(a);
-        Ok(1)
-    });
-
-    return ret;
+    let accounts = stmt
+        .query_map(params![], |row| {
+            Ok(Account {
+                _id: row.get(0).unwrap(),
+                public_key_for_eddsa: row.get(1).unwrap(),
+                created_at: row.get(2).unwrap(),
+                updated_at: row.get(3).unwrap(),
+            })
+        })
+        .unwrap();
+    return accounts.map(|a| a.unwrap()).collect();
 }
 
 fn select_state_with_pubkey(con: &Connection) -> Vec<StateWithPubKey> {
@@ -168,8 +172,18 @@ fn main() {
         updated_at: String::from(""),
     };
 
-    insert_account(&con, &a);
-    insert_account(&con, &b);
+    match delete_all_account(&con) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
+    match insert_account(&con, &a) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
+    match insert_account(&con, &b) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
     let accounts = select_accounts_all(&con);
     for a in accounts {
         info!("account={}", a._id);
