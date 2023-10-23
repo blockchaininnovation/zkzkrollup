@@ -9,10 +9,16 @@ use rand::rngs::OsRng;
 use smt::poseidon::{FieldHasher, Poseidon};
 use smt::smt::{gen_empty_hashes, SparseMerkleTree};
 
+use chrono::Local;
+use env_logger;
+use log::{info, LevelFilter};
+use std::env;
+use std::io::Write;
+
 #[derive(Debug)]
 struct Account {
     _id: u32,
-    public_key_for_eddsa: String,
+    public_key_for_eddsa: String, //x,y座標を直列に並べたものをHEXで．
     created_at: String,
     updated_at: String,
 }
@@ -33,11 +39,11 @@ struct StateWithPubKey {
 fn open_my_db() -> Result<Connection, rusqlite::Error> {
     let path = "./zkzkrollup.db";
     let con = Connection::open(&path)?;
-    println!("{}", con.is_autocommit());
+    info!("{}", con.is_autocommit());
     Ok(con)
 }
 
-fn insert_address(con: &Connection, a: &Account) -> Result<usize, rusqlite::Error> {
+fn insert_account(con: &Connection, a: &Account) -> Result<usize, rusqlite::Error> {
     return Ok(con.execute(
         "insert into account (_id, public_key_for_eddsa) values (?1, ?2)",
         params![a._id, a.public_key_for_eddsa],
@@ -45,23 +51,19 @@ fn insert_address(con: &Connection, a: &Account) -> Result<usize, rusqlite::Erro
 }
 
 fn select_accounts_all(con: &Connection) -> Vec<Account> {
-    let mut stmt = con.prepare("select * from account").unwrap();
-    let accounts = stmt
-        .query_map(params![], |row| {
-            Ok(Account {
-                _id: row.get(0).unwrap(),
-                public_key_for_eddsa: row.get(1).unwrap(),
-                created_at: row.get(2).unwrap(),
-                updated_at: row.get(3).unwrap(),
-            })
-        })
-        .unwrap();
-
     let mut ret = Vec::new();
-    for a in accounts {
-        println!("{:?}", a.unwrap());
-        ret.push(a.unwrap());
-    }
+
+    let mut stmt = con.prepare("select * from account").unwrap();
+    stmt.query_map(params![], |row| {
+        let a = Account {
+            _id: row.get(0).unwrap(),
+            public_key_for_eddsa: row.get(1).unwrap(),
+            created_at: row.get(2).unwrap(),
+            updated_at: row.get(3).unwrap(),
+        };
+        ret.push(a);
+        Ok(1)
+    });
 
     return ret;
 }
@@ -86,14 +88,14 @@ fn select_state_with_pubkey(con: &Connection) -> Vec<StateWithPubKey> {
     return ret;
 }
 
-fn convert_hex_to_u8_array(hex_string: &str) -> Result<[u8; 64], hex::FromHexError> {
+fn convert_hex_to_u8_array(hex_string: &str) -> Result<[u8; 31 * 6], hex::FromHexError> {
     let stripped = if hex_string.starts_with("0x") {
         &hex_string[2..]
     } else {
         hex_string
     };
     let vec = hex::decode(stripped)?;
-    let mut arr = [0u8; 64];
+    let mut arr = [0u8; 31 * 6];
     for (place, element) in arr.iter_mut().zip(vec.iter()) {
         *place = *element;
     }
@@ -113,7 +115,7 @@ fn create_merkle_tree(con: &Connection) {
     let states_with_pubkey = select_state_with_pubkey(con);
     for s in states_with_pubkey {
         let index = s.account_id;
-        let value = s.public_key_for_eddsa + &s.balance_encrypted;
+        let valueHex = s.public_key_for_eddsa + &s.balance_encrypted;
         // バイト列に変更
         // バイト列の31バイトずつに結合した列を作る
         // それぞれの31バイトをハッシュにする．
@@ -121,14 +123,37 @@ fn create_merkle_tree(con: &Connection) {
         // 元の値（public_key_for_eddsa，balance_encrypted）の値の範囲をまず調べる必要がある．
         // pubkey: x, yそれぞれが31byte．
         // balance: 31*4 byte
+        let value = convert_hex_to_u8_array(&valueHex).unwrap();
+        // hashのinputには2バイトしか入れられないようなので，上記31*6バイトを2バイトに圧縮．というか2バイトずつに分けて3バイト分足し合わせる．
+        //TODO 宣言している配列の長さとvalue[...]で部分列をとっているところの長さがあってない気がするがこれでいいか要確認．
+        let v1: [u8; 64] = value[0..(31 * 6 / 2 - 1)].try_into().unwrap();
+        let v2: [u8; 64] = value[(31 * 6 / 2)..(31 * 6 - 1)].try_into().unwrap();
 
-        let hash = poseidon.hash(value);
+        let inputs = [Fp::from_bytes_wide(&v1), Fp::from_bytes_wide(&v2)];
 
-        smt.tree.insert(index, hash);
+        let hash = poseidon.hash(inputs);
+
+        // smt.tree.insert(index, hash);
     }
 }
 
 fn main() {
+    env::set_var("RUST_LOG", "info");
+    env_logger::Builder::from_default_env()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{}:{: >03} {} [{}] - {}",
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.args()
+            )
+        })
+        .init();
+
+    info!("into main()");
     let con = open_my_db().unwrap();
     let a = Account {
         _id: 1,
@@ -143,7 +168,10 @@ fn main() {
         updated_at: String::from(""),
     };
 
-    insert_address(&con, &a);
-    insert_address(&con, &b);
-    select_accounts_all(&con)
+    insert_account(&con, &a);
+    insert_account(&con, &b);
+    let accounts = select_accounts_all(&con);
+    for a in accounts {
+        info!("account={}", a._id);
+    }
 }

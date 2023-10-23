@@ -11,4 +11,6 @@ rand = "0.8"
 hex = "0.4.3"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02", package = "halo2_proofs" }
 smt = {git = "https://github.com/blockchaininnovation/rocks-smt.git", rev = "8e7b828c813ba6f689bbe5fda0cf20a3ef97c02f" }
-
+log = "0.4.20"
+env_logger = "0.10.0"
+chrono = "0.4.31"
