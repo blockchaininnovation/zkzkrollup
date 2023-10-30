@@ -57,7 +57,6 @@ fn delete_all_account(con: &Connection) -> Result<usize, rusqlite::Error> {
 }
 
 fn select_accounts_all(con: &Connection) -> Vec<Account> {
-    // let ret: Vec<Account> = Vec::new();
     let mut stmt = con.prepare("select * from account").unwrap();
     let accounts = stmt
         .query_map(params![], |row| {
@@ -84,12 +83,7 @@ fn select_state_with_pubkey(con: &Connection) -> Vec<StateWithPubKey> {
         })
         .unwrap();
 
-    let mut ret = Vec::new();
-    for a in results {
-        ret.push(a.unwrap());
-    }
-
-    return ret;
+    return results.map(|s| s.unwrap()).collect();
 }
 
 fn convert_hex_to_u8_array(hex_string: &str) -> Result<[u8; 31 * 6], hex::FromHexError> {
@@ -119,7 +113,7 @@ fn create_merkle_tree(con: &Connection) {
     let states_with_pubkey = select_state_with_pubkey(con);
     for s in states_with_pubkey {
         let index = s.account_id;
-        let valueHex = s.public_key_for_eddsa + &s.balance_encrypted;
+        let value_hex = s.public_key_for_eddsa + &s.balance_encrypted;
         // バイト列に変更
         // バイト列の31バイトずつに結合した列を作る
         // それぞれの31バイトをハッシュにする．
@@ -127,7 +121,7 @@ fn create_merkle_tree(con: &Connection) {
         // 元の値（public_key_for_eddsa，balance_encrypted）の値の範囲をまず調べる必要がある．
         // pubkey: x, yそれぞれが31byte．
         // balance: 31*4 byte
-        let value = convert_hex_to_u8_array(&valueHex).unwrap();
+        let value = convert_hex_to_u8_array(&value_hex).unwrap();
         // hashのinputには2バイトしか入れられないようなので，上記31*6バイトを2バイトに圧縮．というか2バイトずつに分けて3バイト分足し合わせる．
         //TODO 宣言している配列の長さとvalue[...]で部分列をとっているところの長さがあってない気がするがこれでいいか要確認．
         let v1: [u8; 64] = value[0..(31 * 6 / 2 - 1)].try_into().unwrap();
@@ -141,7 +135,7 @@ fn create_merkle_tree(con: &Connection) {
     }
 }
 
-fn main() {
+fn log_config() {
     env::set_var("RUST_LOG", "info");
     env_logger::Builder::from_default_env()
         .format(|buf, record| {
@@ -156,6 +150,10 @@ fn main() {
             )
         })
         .init();
+}
+
+fn main() {
+    log_config();
 
     info!("into main()");
     let con = open_my_db().unwrap();
