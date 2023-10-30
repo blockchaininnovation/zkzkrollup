@@ -41,7 +41,6 @@ struct StateWithPubKey {
 fn open_my_db() -> Result<Connection, rusqlite::Error> {
     let path = "./zkzkrollup.db";
     let con = Connection::open(&path)?;
-    info!("{}", con.is_autocommit());
     Ok(con)
 }
 
@@ -54,6 +53,16 @@ fn insert_account(con: &Connection, a: &Account) -> Result<usize, rusqlite::Erro
 
 fn delete_all_account(con: &Connection) -> Result<usize, rusqlite::Error> {
     return Ok(con.execute("delete from account", ())?);
+}
+fn insert_state(con: &Connection, s: &State) -> Result<usize, rusqlite::Error> {
+    return Ok(con.execute(
+        "insert into state (account_id, balance_encrypted) values (?1, ?2)",
+        params![s.account_id, s.balance_encrypted],
+    )?);
+}
+
+fn delete_all_state(con: &Connection) -> Result<usize, rusqlite::Error> {
+    return Ok(con.execute("delete from state", ())?);
 }
 
 fn select_accounts_all(con: &Connection) -> Vec<Account> {
@@ -72,7 +81,7 @@ fn select_accounts_all(con: &Connection) -> Vec<Account> {
 }
 
 fn select_state_with_pubkey(con: &Connection) -> Vec<StateWithPubKey> {
-    let mut stmt = con.prepare("select s.account_id, s.balance_encrypted, a.publick_key_for_eddsa from state s, account a where s.account_id = a._id").unwrap();
+    let mut stmt = con.prepare("select s.account_id, s.balance_encrypted, a.public_key_for_eddsa from state s, account a where s.account_id = a._id").unwrap();
     let results = stmt
         .query_map(params![], |row| {
             Ok(StateWithPubKey {
@@ -157,6 +166,55 @@ fn main() {
 
     info!("into main()");
     let con = open_my_db().unwrap();
+
+    // アカウントデータをいくつか入れる．
+    insert_account_sample_data(&con);
+
+    // ステートデータをいくつか入れる．
+    insert_state_sample_data(&con);
+
+    // マークルツリーを出力
+
+    // ステートを変更する
+
+    // マークルツリーを出力
+}
+
+fn insert_state_sample_data(con: &Connection) {
+    let s1 = State {
+        account_id: 1,
+        balance_encrypted: String::from(""),
+        created_at: String::from(""),
+        updated_at: String::from(""),
+    };
+    let s2 = State {
+        account_id: 2,
+        balance_encrypted: String::from(""),
+        created_at: String::from(""),
+        updated_at: String::from(""),
+    };
+
+    match delete_all_state(&con) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
+    match insert_state(&con, &s1) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
+    match insert_state(&con, &s2) {
+        Ok(s) => info!("ok: {}", s),
+        Err(err) => error!("error: {}", err),
+    };
+    let states = select_state_with_pubkey(&con);
+    for s in states {
+        info!(
+            "state={} {} {}",
+            s.account_id, s.balance_encrypted, s.public_key_for_eddsa
+        );
+    }
+}
+fn insert_account_sample_data(con: &Connection) {
     let a = Account {
         _id: 1,
         public_key_for_eddsa: String::from("aaa"),
