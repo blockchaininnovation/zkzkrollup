@@ -7,13 +7,12 @@ use std::collections::BTreeMap;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::halo2curves::pasta::Fp;
-use rand::rngs::OsRng;
 use smt::poseidon::{FieldHasher, Poseidon};
-use smt::smt::{gen_empty_hashes, SparseMerkleTree};
+use smt::smt::SparseMerkleTree;
 
 use chrono::Local;
 use env_logger;
-use log::{info, LevelFilter};
+use log::info;
 use std::env;
 use std::io::Write;
 
@@ -109,13 +108,14 @@ fn convert_hex_to_u8_array(hex_string: &str) -> Result<[u8; 31 * 6], hex::FromHe
     Ok(arr)
 }
 
-fn create_merkle_tree(con: &Connection) {
-    let poseidon = Poseidon::<Fp, 2>::new();
+const HEIGHT: usize = 8;
+
+fn create_merkle_tree(con: &Connection) -> SparseMerkleTree<Fp, Poseidon::<Fp, 2>, HEIGHT> {
     let default_leaf = [0u8; 64];
 
+    let poseidon: Poseidon<Fp, 2> = Poseidon::<Fp, 2>::new();
     let leaves: BTreeMap<u32, Fp> = BTreeMap::new();
 
-    const HEIGHT: usize = 8;
     let mut smt: SparseMerkleTree<Fp, Poseidon<Fp, 2>, HEIGHT> =
         SparseMerkleTree::new(&leaves, &poseidon.clone(), &default_leaf).unwrap();
 
@@ -140,8 +140,10 @@ fn create_merkle_tree(con: &Connection) {
 
         let hash = poseidon.hash(inputs);
 
-        // smt.tree.insert(index, hash);
+        smt.tree.insert(From::from(index), hash.unwrap());
     }
+
+    return smt;
 }
 
 fn log_config() {
