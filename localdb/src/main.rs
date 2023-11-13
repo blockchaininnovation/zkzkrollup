@@ -183,17 +183,19 @@ fn main() {
 }
 
 fn insert_state_sample_data(con: &Connection) {
+    let dtstr = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    // TODO 暗号化データなどをHEX形式で保存．
     let s1 = State {
         account_id: 1,
         balance_encrypted: String::from(""),
-        created_at: String::from(""),
-        updated_at: String::from(""),
+        created_at: dtstr.clone(),
+        updated_at: dtstr.clone(),
     };
     let s2 = State {
         account_id: 2,
         balance_encrypted: String::from(""),
-        created_at: String::from(""),
-        updated_at: String::from(""),
+        created_at: dtstr.clone(),
+        updated_at: dtstr.clone(),
     };
 
     match delete_all_state(&con) {
@@ -217,17 +219,19 @@ fn insert_state_sample_data(con: &Connection) {
     }
 }
 fn insert_account_sample_data(con: &Connection) {
+    let dtstr = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
     let a = Account {
         _id: 1,
         public_key_for_eddsa: String::from("aaa"),
-        created_at: String::from(""),
-        updated_at: String::from(""),
+        created_at: dtstr.clone(),
+        updated_at: dtstr.clone(),
     };
     let b = Account {
         _id: 2,
         public_key_for_eddsa: String::from("bbb"),
-        created_at: String::from(""),
-        updated_at: String::from(""),
+        created_at: dtstr.clone(),
+        updated_at: dtstr.clone(),
     };
 
     match delete_all_account(&con) {
