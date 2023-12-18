@@ -5,7 +5,8 @@ members = [
     "hash",
     "merkle",
     "recursion",
-    "localdb"
+    "localdb",
+    "reddsa"
 ]
 
 # [patch."https://github.com/young-rocks/halo2.git"]
