@@ -3,6 +3,9 @@ name = "reddsa"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+halo2-base = { version = "0.2.2", default-features = false, features = [
+    "halo2-pse",
+    "display",
+], git = "https://github.com/axiom-crypto/halo2-lib.git", rev = "9860acc" }
+rand_core = { version="0.6.4", default-features = false }
